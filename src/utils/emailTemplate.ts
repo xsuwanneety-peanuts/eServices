@@ -1,4 +1,4 @@
-import { ApprovalStepConfig, DocumentRequest } from '../types';
+import { DocumentRequest } from '../types';
 
 export const EMAIL_SENDER_NAME = 'ระบบเดินเอกสาร e-Service';
 
@@ -16,7 +16,9 @@ const SAMPLE_REQUEST = {
  * and step details change.
  */
 export const renderStepEmail = (
-  step: Pick<ApprovalStepConfig, 'title' | 'roleName'>,
+  stepTitle: string,
+  /** Approver's name from the Employee Directory; omitted when no approver is set up yet. */
+  approverName: string | undefined,
   request?: DocumentRequest | null
 ): { subject: string; body: string } => {
   const code = request?.code ?? SAMPLE_REQUEST.code;
@@ -27,9 +29,9 @@ export const renderStepEmail = (
   return {
     subject: `[โปรดพิจารณาอนุมัติ] ${code}: ${title}`,
     body: [
-      `เรียน ${step.roleName}`,
+      approverName ? `เรียน คุณ${approverName}` : 'เรียน ผู้อนุมัติ',
       '',
-      `มีคำร้อง ${code} "${title}" จากคุณ ${requestorName} (${requestorDepartment}) รอการพิจารณาของท่านในขั้นตอน "${step.title}"`,
+      `มีคำร้อง ${code} "${title}" จากคุณ ${requestorName} (${requestorDepartment}) รอการพิจารณาของท่านในขั้นตอน "${stepTitle}"`,
       '',
       'หากมีข้อสงสัยหรือไม่สามารถดำเนินการได้กรุณาติดต่อฝ่าย เทคโนโลยีสารสนเทศ',
       'ขอบคุณค่ะ',

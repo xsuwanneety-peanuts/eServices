@@ -40,7 +40,18 @@ export interface UserPersona {
   position: string;
   role: 'employee' | 'approver' | 'manager' | 'director' | 'admin';
   avatar: string;
+  /** Employee this person reports to (their line manager). Unset for the top of a reporting line. */
+  reportsToId?: string;
 }
+
+/**
+ * Who approves a workflow step, resolved against the Employee Directory:
+ * - requester: the person who submitted the request
+ * - reports_to: the requester's line manager
+ * - reports_to_2: the line manager's own manager
+ * - employee: one specific employee
+ */
+export type StepApproverType = 'requester' | 'reports_to' | 'reports_to_2' | 'employee';
 
 export type RequestStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'returned';
 
@@ -49,7 +60,9 @@ export interface ApprovalStepConfig {
   stepIndex: number;
   title: string;
   roleName: string;
-  assigneeEmail: string;
+  approverType: StepApproverType;
+  /** Set when approverType is 'employee'. */
+  approverEmployeeId?: string;
   sendEmailNotification: boolean;
 
   slaHours?: number;
@@ -111,11 +124,35 @@ export interface DocumentRequest {
   qrCodeUrl?: string;
 }
 
+/** One block of a knowledge article: a heading with paragraphs, numbered steps, and/or a tip. */
+export interface KnowledgeSection {
+  heading: string;
+  paragraphs?: string[];
+  steps?: string[];
+  tip?: string;
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  summary: string;
+  /** Department that owns and maintains the article. */
+  departmentId: DepartmentId;
+  tags: string[];
+  updatedAt: string;
+  readMinutes: number;
+  sections: KnowledgeSection[];
+  /** Optional shortcut to an e-Service form related to the article. */
+  relatedForm?: { label: string; category: ItRequestCategory };
+}
+
 export interface MenuItemPermission {
   id: string;
   menuCode: string;
   menuName: string;
   category: string;
+  /** Department that provides the form (its forms appear on that department's page). */
+  ownerDepartmentId: DepartmentId;
   allowedDepartments: Record<DepartmentId, boolean>;
 }
 

@@ -9,8 +9,9 @@ import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { AccessControlView } from './components/AccessControlView';
 import { WorkflowBuilderView } from './components/WorkflowBuilderView';
-import { TraceabilityCenterView } from './components/TraceabilityCenterView';
+import { EmployeeDirectoryView } from './components/EmployeeDirectoryView';
 import { DepartmentWorkspaceView } from './components/DepartmentWorkspaceView';
+import { KnowledgeBaseView } from './components/KnowledgeBaseView';
 import { NewRequestModal } from './components/NewRequestModal';
 import { EmailSimulatorModal } from './components/EmailSimulatorModal';
 import { RequestDetailModal } from './components/RequestDetailModal';
@@ -35,8 +36,9 @@ const AppContent: React.FC = () => {
           {activeTab === 'my_workspace' && <DashboardView />}
           {activeTab === 'access_control' && <AccessControlView />}
           {activeTab === 'workflow_builder' && <WorkflowBuilderView />}
-          {activeTab === 'traceability_center' && <TraceabilityCenterView />}
+          {activeTab === 'employee_directory' && <EmployeeDirectoryView />}
           {activeTab === 'department_view' && <DepartmentWorkspaceView />}
+          {activeTab === 'knowledge_base' && <KnowledgeBaseView />}
         </div>
       </main>
 

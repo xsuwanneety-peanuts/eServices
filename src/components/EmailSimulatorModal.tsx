@@ -26,7 +26,6 @@ export const EmailSimulatorModal: React.FC = () => {
     setSelectedNotificationId,
     executeEmailAction,
     requests,
-    workflows,
     setActiveRequestId,
   } = useApp();
 
@@ -44,19 +43,10 @@ export const EmailSimulatorModal: React.FC = () => {
     ? requests.find(r => r.id === currentEmail.requestId)
     : null;
 
-  // Subject and body come from the template configured for this step in the workflow builder
-  const stepConfig =
-    currentEmail && matchedRequest
-      ? workflows
-          .find(w => w.id === matchedRequest.workflowId)
-          ?.steps.find(s => s.assigneeEmail === currentEmail.recipientEmail)
-      : undefined;
+  // Standard approval email, addressed to the approver recorded on the notification
   const renderedEmail =
     currentEmail && matchedRequest
-      ? renderStepEmail(
-          stepConfig ?? { title: currentEmail.stepTitle, roleName: currentEmail.recipientName },
-          matchedRequest
-        )
+      ? renderStepEmail(currentEmail.stepTitle, currentEmail.recipientName, matchedRequest)
       : null;
 
   const handleApprove = () => {

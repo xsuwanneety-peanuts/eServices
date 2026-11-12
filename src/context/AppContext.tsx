@@ -21,12 +21,59 @@ import {
   INITIAL_MENU_PERMISSIONS,
   INITIAL_WORKFLOWS,
   INITIAL_REQUESTS,
-  INITIAL_EMAIL_NOTIFICATIONS,
-  MAILBOX_OWNERS,
-  DEPARTMENT_MAILBOXES,
+  initialsAvatar,
 } from '../data/mockData';
+import { resolveStepApprover } from '../utils/approvers';
 
-const ADMIN_TABS = ['access_control', 'workflow_builder', 'traceability_center'];
+const ADMIN_TABS = ['access_control', 'workflow_builder', 'employee_directory'];
+
+const UNASSIGNED_APPROVER = 'ยังไม่ได้กำหนดผู้อนุมัติ';
+
+/** Audit-trail fields for the person who must decide a step (or a placeholder when none is set up). */
+const approverFields = (
+  step: ApprovalStepConfig | undefined,
+  requestorId: string,
+  employees: UserPersona[]
+): Pick<ApprovalAuditEntry, 'approverName' | 'approverRole' | 'approverEmail'> => {
+  const approver = step ? resolveStepApprover(step, requestorId, employees) : undefined;
+  return approver
+    ? { approverName: approver.name, approverRole: approver.position, approverEmail: approver.email }
+    : { approverName: UNASSIGNED_APPROVER, approverRole: step?.title ?? '', approverEmail: '' };
+};
+
+// Sample requests: point every step that is not decided yet at the approver from the directory
+const INITIAL_REQUESTS_RESOLVED: DocumentRequest[] = INITIAL_REQUESTS.map(req => {
+  const wf = INITIAL_WORKFLOWS.find(w => w.id === req.workflowId);
+  return {
+    ...req,
+    steps: req.steps.map((step, idx) =>
+      step.status === 'pending' || step.status === 'waiting'
+        ? { ...step, ...approverFields(wf?.steps[idx], req.requestorId, USER_PERSONAS) }
+        : step
+    ),
+  };
+});
+
+// Sample notifications: one approval email for every request waiting on someone
+const INITIAL_NOTIFICATIONS: ActionEmailNotification[] = INITIAL_REQUESTS_RESOLVED.flatMap(req => {
+  const step = req.steps[req.currentStepIndex];
+  if (req.status !== 'in_review' || step?.status !== 'pending' || !step.approverEmail) return [];
+  return [
+    {
+      id: `email-${req.id}-${req.currentStepIndex}`,
+      requestId: req.id,
+      requestCode: req.code,
+      requestTitle: req.title,
+      recipientEmail: step.approverEmail,
+      recipientName: step.approverName,
+      senderName: 'ระบบเดินเอกสาร e-Service',
+      stepTitle: step.stepTitle,
+      createdAt: req.steps[req.currentStepIndex - 1]?.timestamp ?? req.updatedAt,
+      read: false,
+      priority: req.priority,
+    },
+  ];
+});
 
 const isAdminRole = (user: UserPersona) => user.role === 'admin' || user.role === 'director';
 
@@ -58,15 +105,25 @@ interface AppContextType {
   setCurrentUser: (user: UserPersona) => void;
   availablePersonas: UserPersona[];
 
+  // Employee Directory (also the source of approvers and email recipients)
+  employees: UserPersona[];
+  addEmployee: (employee: Omit<UserPersona, 'id' | 'avatar' | 'departmentName'>) => void;
+  updateEmployee: (id: string, patch: Partial<Omit<UserPersona, 'id'>>) => void;
+
   // Navigation
   activeTab: string;
   setActiveTab: (tab: string) => void;
   activeDeptFilter: DepartmentId | null;
   setActiveDeptFilter: (dept: DepartmentId | null) => void;
+  /** Knowledge Base article being read (null shows the article list). */
+  activeArticleId: string | null;
+  setActiveArticleId: (id: string | null) => void;
 
   // Permissions (Top-Right Screen: ตั้งค่าสิทธิ์เข้าถึง)
   menuPermissions: MenuItemPermission[];
   togglePermission: (menuId: string, deptId: DepartmentId) => void;
+  /** Open a form to every department (true) or close it to all of them (false). */
+  setFormAccessForAll: (menuId: string, allowed: boolean) => void;
   resetPermissions: () => void;
   isMenuPermittedForUser: (menuCode: string) => boolean;
 
@@ -140,27 +197,62 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUserState] = useState<UserPersona>(USER_PERSONAS[0]); // Default to the first IT team member
+  const [employees, setEmployees] = useState<UserPersona[]>(USER_PERSONAS);
+  const [currentUserId, setCurrentUserId] = useState<string>(USER_PERSONAS[0].id); // Default to the first IT team member
+  const currentUser = employees.find(e => e.id === currentUserId) ?? employees[0];
   const [activeTab, setActiveTab] = useState<string>('my_workspace');
   const [seenStatusUpdateKeys, setSeenStatusUpdateKeys] = useState<string[]>([]);
 
   // Switching persona: leave system-management screens the new user may not open
   const setCurrentUser = (user: UserPersona) => {
-    setCurrentUserState(user);
+    setCurrentUserId(user.id);
     if (!canUserAccessTab(user, activeTab)) {
       setActiveTab('my_workspace');
     }
   };
   const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
+  const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
 
   const [menuPermissions, setMenuPermissions] = useState<MenuItemPermission[]>(INITIAL_MENU_PERMISSIONS);
   const [workflows, setWorkflows] = useState<WorkflowDefinition[]>(INITIAL_WORKFLOWS);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>(INITIAL_WORKFLOWS[0].id);
 
-  const [requests, setRequests] = useState<DocumentRequest[]>(INITIAL_REQUESTS);
+  const [requests, setRequests] = useState<DocumentRequest[]>(INITIAL_REQUESTS_RESOLVED);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
 
-  const [emailNotifications, setEmailNotifications] = useState<ActionEmailNotification[]>(INITIAL_EMAIL_NOTIFICATIONS);
+  const [emailNotifications, setEmailNotifications] = useState<ActionEmailNotification[]>(INITIAL_NOTIFICATIONS);
+
+  // ---- Employee Directory ----
+  const departmentLabel = (deptId: DepartmentId) => {
+    const dept = CORPORATE_DEPARTMENTS.find(d => d.id === deptId);
+    return dept ? `${dept.nameEn} (${dept.nameTh})` : deptId;
+  };
+
+  const addEmployee = (employee: Omit<UserPersona, 'id' | 'avatar' | 'departmentName'>) => {
+    const newEmployee: UserPersona = {
+      ...employee,
+      id: `emp-${Date.now()}`,
+      avatar: initialsAvatar(employee.name),
+      departmentName: departmentLabel(employee.departmentId),
+    };
+    setEmployees(prev => [...prev, newEmployee]);
+  };
+
+  const updateEmployee = (id: string, patch: Partial<Omit<UserPersona, 'id'>>) => {
+    setEmployees(prev =>
+      prev.map(e => {
+        if (e.id !== id) return e;
+        const next = { ...e, ...patch };
+        if (patch.departmentId && patch.departmentId !== e.departmentId) {
+          next.departmentName = departmentLabel(patch.departmentId);
+        }
+        if (patch.name && patch.name !== e.name && e.avatar.startsWith('data:image/svg')) {
+          next.avatar = initialsAvatar(patch.name);
+        }
+        return next;
+      })
+    );
+  };
   const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null);
 
   const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
@@ -212,6 +304,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('ปรับปรุงสิทธิ์การเข้าถึงเรียบร้อยแล้ว', 'info');
   };
 
+  const setFormAccessForAll = (menuId: string, allowed: boolean) => {
+    setMenuPermissions(prev =>
+      prev.map(item =>
+        item.id === menuId
+          ? {
+              ...item,
+              allowedDepartments: Object.fromEntries(
+                CORPORATE_DEPARTMENTS.map(d => [d.id, allowed])
+              ) as Record<DepartmentId, boolean>,
+            }
+          : item
+      )
+    );
+    showToast(allowed ? 'เปิดสิทธิ์ให้ทุกหน่วยงานแล้ว' : 'ปิดสิทธิ์ทุกหน่วยงานแล้ว', 'info');
+  };
+
   const resetPermissions = () => {
     setMenuPermissions(INITIAL_MENU_PERMISSIONS);
     showToast('รีเซ็ตสิทธิ์การเข้าถึงตามค่ามาตรฐานองค์กรแล้ว', 'info');
@@ -246,9 +354,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const newStep: ApprovalStepConfig = {
             id: `step-custom-${Date.now()}`,
             stepIndex: afterIndex + 1,
-            title: 'ฝ่ายตรวจสอบเพิ่มเติม (อีเมล)',
-            roleName: 'ผู้ตรวจสอบภายใน / ฝ่ายสนับสนุน',
-            assigneeEmail: 'compliance@eservice.corp',
+            title: 'ขั้นตอนอนุมัติเพิ่มเติม',
+            roleName: 'ผู้บังคับบัญชาของผู้ยื่น',
+            approverType: 'reports_to',
             sendEmailNotification: true,
             slaHours: 24,
           };
@@ -331,25 +439,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           comment: 'ส่งคำร้องขอผ่านระบบ e-Service เรียบร้อยแล้ว',
           digitalSignatureHash: `DIGI-SIGN-CREATED-${Date.now()}-AUTH`,
         };
-      } else if (idx === 1) {
-        return {
-          stepIndex: idx,
-          stepTitle: s.title,
-          approverName: s.roleName,
-          approverRole: s.roleName,
-          approverEmail: s.assigneeEmail,
-          status: 'pending',
-        };
-      } else {
-        return {
-          stepIndex: idx,
-          stepTitle: s.title,
-          approverName: s.roleName,
-          approverRole: s.roleName,
-          approverEmail: s.assigneeEmail,
-          status: 'waiting',
-        };
       }
+      // Approvers come from the Employee Directory, resolved for this requester at submission
+      return {
+        stepIndex: idx,
+        stepTitle: s.title,
+        ...approverFields(s, currentUser.id, employees),
+        status: idx === 1 ? 'pending' : 'waiting',
+      };
     });
 
     const doc: DocumentRequest = {
@@ -382,14 +479,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Create action email notification for the next approver (Core Concept 3)
     const nextStepConfig = matchedWf.steps[1];
-    if (nextStepConfig && nextStepConfig.sendEmailNotification) {
+    const nextApprover = auditSteps[1];
+    if (nextStepConfig && nextStepConfig.sendEmailNotification && nextApprover?.approverEmail) {
       const emailNotif: ActionEmailNotification = {
         id: `email-${Date.now()}`,
         requestId: doc.id,
         requestCode: doc.code,
         requestTitle: doc.title,
-        recipientEmail: nextStepConfig.assigneeEmail,
-        recipientName: `${nextStepConfig.roleName} (${nextStepConfig.title})`,
+        recipientEmail: nextApprover.approverEmail,
+        recipientName: nextApprover.approverName,
         senderName: `${currentUser.name} (${currentUser.departmentName})`,
         stepTitle: nextStepConfig.title,
         createdAt: dateStr,
@@ -441,7 +539,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newStatus = isFinalStep ? ('approved' as const) : ('in_review' as const);
 
         // Send next email if not final
-        if (!isFinalStep) {
+        if (!isFinalStep && updatedSteps[currentStep + 1]?.approverEmail) {
           const nextStepIdx = currentStep + 1;
           const nextAudit = updatedSteps[nextStepIdx];
           const newNotif: ActionEmailNotification = {
@@ -450,7 +548,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             requestCode: req.code,
             requestTitle: req.title,
             recipientEmail: nextAudit.approverEmail,
-            recipientName: nextAudit.approverRole || 'ผู้อนุมัติขั้นตอนถัดไป',
+            recipientName: nextAudit.approverName,
             senderName: `ระบบ e-Service (ส่งต่อจาก ${currentUser.name})`,
             stepTitle: nextAudit.stepTitle,
             createdAt: dateStr,
@@ -535,41 +633,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isSystemAdmin = isAdminRole(currentUser);
   const canApprove = currentUser.role !== 'employee';
 
-  // Does the current user handle approvals sent to this mailbox (for this request)?
-  const ownsMailbox = (email: string, request?: DocumentRequest): boolean => {
-    if (isSystemAdmin) return true;
-    if (!canApprove) return false;
-    if (email === currentUser.email) return true;
-    if (MAILBOX_OWNERS[email]?.includes(currentUser.id)) return true;
-    if (DEPARTMENT_MAILBOXES.includes(email) && request && currentUser.role === 'manager') {
-      const requestor = USER_PERSONAS.find(p => p.id === request.requestorId);
-      return requestor?.departmentId === currentUser.departmentId;
-    }
-    return false;
-  };
+  // Approvers are real employees from the directory, so a step belongs to whoever's email it carries
+  const isMine = (email: string) => isSystemAdmin || (!!email && email === currentUser.email);
 
   const canActOnRequest = (request: DocumentRequest): boolean => {
     if (request.status !== 'in_review' && request.status !== 'pending') return false;
     const step = request.steps[request.currentStepIndex];
     if (!step || step.status !== 'pending') return false;
-    return ownsMailbox(step.approverEmail, request);
+    return isMine(step.approverEmail);
   };
 
   const canViewRequest = (request: DocumentRequest): boolean => {
     if (isSystemAdmin) return true;
     if (request.requestorId === currentUser.id) return true;
-    if (!canApprove) return false;
-    if (request.departmentId === currentUser.departmentId) return true; // staff of the servicing department
-    if (canActOnRequest(request)) return true;
-    return request.steps.some(step => step.status !== 'waiting' && ownsMailbox(step.approverEmail, request));
+    if (request.steps.some(step => step.status !== 'waiting' && isMine(step.approverEmail))) return true;
+    // Staff of the servicing department see its requests
+    return canApprove && request.departmentId === currentUser.departmentId;
   };
 
   const myRequests = requests.filter(r => r.requestorId === currentUser.id);
   const approvalQueue = requests.filter(canActOnRequest);
 
-  const myNotifications = emailNotifications.filter(notif =>
-    ownsMailbox(notif.recipientEmail, requests.find(r => r.id === notif.requestId))
-  );
+  const myNotifications = emailNotifications.filter(notif => isMine(notif.recipientEmail));
 
   // Latest progress on each of the current user's own requests
   const myStatusUpdates: RequestStatusUpdate[] = myRequests.flatMap((req): RequestStatusUpdate[] => {
@@ -637,13 +722,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         departments: CORPORATE_DEPARTMENTS,
         currentUser,
         setCurrentUser,
-        availablePersonas: USER_PERSONAS,
+        availablePersonas: employees,
+        employees,
+        addEmployee,
+        updateEmployee,
         activeTab,
         setActiveTab,
         activeDeptFilter,
         setActiveDeptFilter,
+        activeArticleId,
+        setActiveArticleId,
         menuPermissions,
         togglePermission,
+        setFormAccessForAll,
         resetPermissions,
         isMenuPermittedForUser,
         workflows,

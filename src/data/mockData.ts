@@ -5,7 +5,6 @@ import {
   MenuItemPermission,
   WorkflowDefinition,
   DocumentRequest,
-  ActionEmailNotification,
 } from '../types';
 
 // 10 Corporate Departments from org chart (excluding CEO & CFO)
@@ -92,8 +91,8 @@ export const CORPORATE_DEPARTMENTS: DepartmentInfo[] = [
   },
 ];
 
-// Initials avatar (inline SVG) for imported team members who have no photo on file
-const initialsAvatar = (name: string): string => {
+// Initials avatar (inline SVG) for employees who have no photo on file
+export const initialsAvatar = (name: string): string => {
   const initials = name
     .split(' ')
     .map(part => part[0])
@@ -160,7 +159,7 @@ const IT_TEAM_MEMBERS: UserPersona[] = [
   },
 ];
 
-export const USER_PERSONAS: UserPersona[] = [
+const BASE_PERSONAS: UserPersona[] = [
   ...IT_TEAM_MEMBERS,
   {
     // Plain requester: submits requests only, takes no part in approvals
@@ -223,25 +222,55 @@ export const USER_PERSONAS: UserPersona[] = [
     role: 'approver',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
   },
+  // Line managers who already appear as approvers in the sample request history
+  {
+    id: 'user-procure-mgr',
+    name: 'พิเชษฐ์ ลิมปิโกศล',
+    email: 'pichet.l@corp.th',
+    departmentId: 'admin_procure',
+    departmentName: 'Administrative & Procurement (ธุรการ)',
+    position: 'ผู้จัดการฝ่ายจัดซื้อ',
+    role: 'manager',
+    avatar: initialsAvatar('พิเชษฐ์ ลิมปิโกศล'),
+  },
+  {
+    id: 'user-claims-dir',
+    name: 'สมบูรณ์ มงคลยิ่ง',
+    email: 'somboon.m@corp.th',
+    departmentId: 'claims',
+    departmentName: 'Claims (Motor & Non-Motor) (สินไหม)',
+    position: 'ผู้อำนวยการฝ่ายสินไหม',
+    role: 'manager',
+    avatar: initialsAvatar('สมบูรณ์ มงคลยิ่ง'),
+  },
+  {
+    id: 'user-underwrite-head',
+    name: 'นิติ บุญชู',
+    email: 'niti.b@corp.th',
+    departmentId: 'underwriting',
+    departmentName: 'Underwriting (Non-Motor) (รับประกันภัยทั่วไป)',
+    position: 'หัวหน้าฝ่ายรับประกันภัย',
+    role: 'manager',
+    avatar: initialsAvatar('นิติ บุญชู'),
+  },
 ];
 
-// Which persona handles each shared approval mailbox.
-// Assumed mapping from job titles — adjust to the real responsibilities.
-export const MAILBOX_OWNERS: Record<string, string[]> = {
-  'security@corp.th': ['user-it-aurathai'],
-  'it.head@corp.th': ['user-it-aurathai'],
-  'it.support@corp.th': ['user-it-suwannee'],
-  'servicedesk@corp.th': ['user-it-suwannee'],
-  'iam.admin@corp.th': ['user-it-bantoon'],
-  'sysadmin@corp.th': ['user-it-bantoon'],
-  'architect@corp.th': ['user-it-bantoon'],
-  'bi.team@corp.th': ['user-it-bantoon'],
-  'cio@corp.th': ['user-it-pipat'],
-  'dpo@corp.th': ['user-legal-1'],
+// Initial reporting lines (employee id -> line manager id); editable in the Employee Directory
+const INITIAL_REPORTS_TO: Record<string, string> = {
+  'user-it-aurathai': 'user-it-pipat',
+  'user-it-petcharat': 'user-it-aurathai',
+  'user-it-bantoon': 'user-it-aurathai',
+  'user-it-suwannee': 'user-it-aurathai',
+  'user-marketing-1': 'user-sales-1',
+  'user-procure-1': 'user-procure-mgr',
+  'user-claims-1': 'user-claims-dir',
+  'user-underwrite-1': 'user-underwrite-head',
 };
 
-// Mailboxes that resolve to the manager of the requestor's own department
-export const DEPARTMENT_MAILBOXES = ['manager.dept@corp.th', 'director.dept@corp.th'];
+export const USER_PERSONAS: UserPersona[] = BASE_PERSONAS.map(p => ({
+  ...p,
+  reportsToId: INITIAL_REPORTS_TO[p.id],
+}));
 
 // Helper to grant all 10 departments permission by default
 const allDeptsAllowed = (): Record<DepartmentId, boolean> => ({
@@ -264,6 +293,7 @@ export const INITIAL_MENU_PERMISSIONS: MenuItemPermission[] = [
     menuCode: 'IT-FORM-01',
     menuName: 'ขอสิทธิ์เข้าใช้งานระบบ (System Access Request)',
     category: 'Information Technology',
+    ownerDepartmentId: 'it',
     allowedDepartments: allDeptsAllowed(),
   },
   {
@@ -271,6 +301,7 @@ export const INITIAL_MENU_PERMISSIONS: MenuItemPermission[] = [
     menuCode: 'IT-FORM-02',
     menuName: 'ขอเบิกอุปกรณ์ (IT Equipment / Hardware)',
     category: 'Information Technology',
+    ownerDepartmentId: 'it',
     allowedDepartments: allDeptsAllowed(),
   },
   {
@@ -278,6 +309,7 @@ export const INITIAL_MENU_PERMISSIONS: MenuItemPermission[] = [
     menuCode: 'IT-FORM-03',
     menuName: 'แจ้งปัญหาระบบขัดข้อง (Incident / IT Breakdown)',
     category: 'Information Technology',
+    ownerDepartmentId: 'it',
     allowedDepartments: allDeptsAllowed(),
   },
   {
@@ -285,6 +317,7 @@ export const INITIAL_MENU_PERMISSIONS: MenuItemPermission[] = [
     menuCode: 'IT-FORM-04',
     menuName: 'ขอพัฒนาระบบใหม่ (New System Development)',
     category: 'Information Technology',
+    ownerDepartmentId: 'it',
     allowedDepartments: {
       ...allDeptsAllowed(),
       hr: true,
@@ -296,6 +329,7 @@ export const INITIAL_MENU_PERMISSIONS: MenuItemPermission[] = [
     menuCode: 'IT-FORM-05',
     menuName: 'ขอข้อมูล (Data Extraction & BI Reports)',
     category: 'Information Technology',
+    ownerDepartmentId: 'it',
     allowedDepartments: allDeptsAllowed(),
   },
 ];
@@ -315,7 +349,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 0,
         title: 'ผู้ยื่นคำร้อง',
         roleName: 'ผู้ยื่นคำขอ',
-        assigneeEmail: 'ผู้สร้างเอกสาร',
+        approverType: 'requester',
         sendEmailNotification: true,
         slaHours: 0,
       },
@@ -324,7 +358,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 1,
         title: 'หัวหน้าแผนกต้นสังกัด (อนุมัติสิทธิ์)',
         roleName: 'ผู้จัดการฝ่ายต้นสังกัด',
-        assigneeEmail: 'manager.dept@corp.th',
+        approverType: 'reports_to',
         sendEmailNotification: true,
         slaHours: 24,
       },
@@ -333,7 +367,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 2,
         title: 'ฝ่ายความปลอดภัยไอที (IT Security)',
         roleName: 'IT Security Specialist',
-        assigneeEmail: 'security@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-aurathai',
         sendEmailNotification: true,
         slaHours: 24,
       },
@@ -342,7 +377,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 3,
         title: 'ผู้ดูแลระบบกลาง (System Admin)',
         roleName: 'Infrastructure & IAM Admin',
-        assigneeEmail: 'iam.admin@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-bantoon',
         sendEmailNotification: true,
         slaHours: 48,
       },
@@ -361,7 +397,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 0,
         title: 'ผู้ยื่นคำร้อง',
         roleName: 'ผู้ยื่นคำขอ',
-        assigneeEmail: 'ผู้สร้างเอกสาร',
+        approverType: 'requester',
         sendEmailNotification: true,
         slaHours: 0,
       },
@@ -370,7 +406,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 1,
         title: 'หัวหน้าแผนก (อีเมล)',
         roleName: 'หัวหน้าฝ่ายต้นสังกัด',
-        assigneeEmail: 'manager.dept@corp.th',
+        approverType: 'reports_to',
         sendEmailNotification: true,
         slaHours: 24,
       },
@@ -379,7 +415,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 2,
         title: 'ฝ่ายไอที (ตรวจสต็อก & สเปก)',
         roleName: 'IT Support & Asset Team',
-        assigneeEmail: 'it.support@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-suwannee',
         sendEmailNotification: true,
         slaHours: 48,
       },
@@ -388,7 +425,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 3,
         title: 'ผู้จัดการฝ่ายไอที (อนุมัติส่งมอบ)',
         roleName: 'Head of Information Technology',
-        assigneeEmail: 'it.head@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-aurathai',
         sendEmailNotification: true,
         slaHours: 48,
       },
@@ -407,7 +445,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 0,
         title: 'ผู้แจ้งปัญหา',
         roleName: 'ผู้รายงานข้อผิดพลาด',
-        assigneeEmail: 'ผู้สร้างเอกสาร',
+        approverType: 'requester',
         sendEmailNotification: true,
         slaHours: 0,
       },
@@ -416,7 +454,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 1,
         title: 'IT Service Desk (รับเรื่อง & คัดกรอง)',
         roleName: 'IT Helpdesk Level 1',
-        assigneeEmail: 'servicedesk@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-suwannee',
         sendEmailNotification: true,
         slaHours: 4,
       },
@@ -425,7 +464,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 2,
         title: 'วิศวกรแก้ไขระบบ (System & Network)',
         roleName: 'Senior System Engineer',
-        assigneeEmail: 'sysadmin@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-bantoon',
         sendEmailNotification: true,
         slaHours: 12,
       },
@@ -444,7 +484,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 0,
         title: 'ผู้ยื่นคำร้อง',
         roleName: 'Project Owner',
-        assigneeEmail: 'ผู้สร้างเอกสาร',
+        approverType: 'requester',
         sendEmailNotification: true,
         slaHours: 0,
       },
@@ -453,7 +493,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 1,
         title: 'ผู้อำนวยการสายงานผู้ยื่น',
         roleName: 'Department Director',
-        assigneeEmail: 'director.dept@corp.th',
+        approverType: 'reports_to',
         sendEmailNotification: true,
         slaHours: 48,
       },
@@ -462,7 +502,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 2,
         title: 'IT Enterprise Architect (ประเมินสถาปัตยกรรม)',
         roleName: 'Lead Software Architect',
-        assigneeEmail: 'architect@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-bantoon',
         sendEmailNotification: true,
         slaHours: 72,
       },
@@ -471,7 +512,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 3,
         title: 'ผู้อำนวยการเทคโนโลยีสารสนเทศ (CIO)',
         roleName: 'Chief Information Officer',
-        assigneeEmail: 'cio@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-pipat',
         sendEmailNotification: true,
         slaHours: 72,
       },
@@ -490,7 +532,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 0,
         title: 'ผู้ยื่นขอข้อมูล',
         roleName: 'Data Consumer',
-        assigneeEmail: 'ผู้สร้างเอกสาร',
+        approverType: 'requester',
         sendEmailNotification: true,
         slaHours: 0,
       },
@@ -499,7 +541,7 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 1,
         title: 'หัวหน้างานต้นสังกัด',
         roleName: 'Department Head',
-        assigneeEmail: 'manager.dept@corp.th',
+        approverType: 'reports_to',
         sendEmailNotification: true,
         slaHours: 24,
       },
@@ -508,7 +550,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 2,
         title: 'Compliance & Data Governance (ตรวจ PDPA)',
         roleName: 'Data Protection Officer',
-        assigneeEmail: 'dpo@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-legal-1',
         sendEmailNotification: true,
         slaHours: 24,
       },
@@ -517,7 +560,8 @@ export const INITIAL_WORKFLOWS: WorkflowDefinition[] = [
         stepIndex: 3,
         title: 'Data Engineer & BI Team (จัดทำข้อมูล)',
         roleName: 'BI Specialist',
-        assigneeEmail: 'bi.team@corp.th',
+        approverType: 'employee',
+        approverEmployeeId: 'user-it-bantoon',
         sendEmailNotification: true,
         slaHours: 48,
       },
@@ -843,44 +887,3 @@ export const INITIAL_REQUESTS: DocumentRequest[] = [
   },
 ];
 
-export const INITIAL_EMAIL_NOTIFICATIONS: ActionEmailNotification[] = [
-  {
-    id: 'email-notif-1',
-    requestId: 'req-it-001',
-    requestCode: 'REQ-2025-0101',
-    requestTitle: 'ขอสิทธิ์เข้าใช้งานระบบ Core Claims และฐานข้อมูล Non-Motor',
-    recipientEmail: 'security@corp.th',
-    recipientName: 'ฝ่ายความปลอดภัยไอที (IT Security)',
-    senderName: 'ระบบเดินเอกสาร e-Service',
-    stepTitle: 'ฝ่ายความปลอดภัยไอที (IT Security)',
-    createdAt: '23.09.2025 10:30',
-    read: false,
-    priority: 'P2',
-  },
-  {
-    id: 'email-notif-2',
-    requestId: 'req-it-004',
-    requestCode: 'REQ-2025-0104',
-    requestTitle: 'ขอพัฒนาระบบใหม่: ระบบเคลมอัตโนมัติ Fast-Track',
-    recipientEmail: 'architect@corp.th',
-    recipientName: 'IT Enterprise Architect (ประเมินสถาปัตยกรรม)',
-    senderName: 'ระบบเดินเอกสาร e-Service',
-    stepTitle: 'IT Enterprise Architect',
-    createdAt: '23.07.2025 15:40',
-    read: false,
-    priority: 'P3',
-  },
-  {
-    id: 'email-notif-3',
-    requestId: 'req-it-005',
-    requestCode: 'REQ-2025-0105',
-    requestTitle: 'ขอข้อมูล: สรุปสถิติความเสียหายและการจ่ายสินไหมสำหรับนักคณิตศาสตร์ประกันภัย',
-    recipientEmail: 'dpo@corp.th',
-    recipientName: 'Compliance & Data Governance (ตรวจ PDPA)',
-    senderName: 'ระบบเดินเอกสาร e-Service',
-    stepTitle: 'Compliance & Data Governance (ตรวจ PDPA)',
-    createdAt: '28.07.2025 11:30',
-    read: false,
-    priority: 'P4',
-  },
-];

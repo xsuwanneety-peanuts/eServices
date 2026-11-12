@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DepartmentId } from '../types';
+import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
+import { DEPT_ICONS } from '../utils/departmentIcons';
 import {
   Bell,
-  Grid,
   ChevronDown,
   ChevronRight,
   CheckCircle2,
@@ -12,45 +13,25 @@ import {
   Menu,
   X,
   Home,
-  Shield,
-  Rocket,
   Laptop,
-  TrendingUp,
-  FileCheck,
-  AlertCircle,
-  DollarSign,
-  Calculator,
-  ShoppingBag,
-  Users,
+  BookOpen,
   ShieldCheck,
   GitBranch,
-  FileCheck2,
+  Contact,
 } from 'lucide-react';
 
-// Icon for each of the 10 corporate departments
-const DEPT_ICONS: Record<DepartmentId, React.ElementType> = {
-  compliance_legal: Shield,
-  new_venture: Rocket,
-  it: Laptop,
-  sales: TrendingUp,
-  underwriting: FileCheck,
-  claims: AlertCircle,
-  finance_invest: DollarSign,
-  accounting_tax: Calculator,
-  admin_procure: ShoppingBag,
-  hr: Users,
-};
 
 // System administration tools
 const ADMIN_NAV_ITEMS = [
   { tab: 'access_control', name: 'ตั้งค่าสิทธิ์เข้าถึง', icon: ShieldCheck },
   { tab: 'workflow_builder', name: 'ตั้งค่า Flow อนุมัติ & แจ้งเตือน', icon: GitBranch },
-  { tab: 'traceability_center', name: '100% Traceability ตรวจสอบสถานะ', icon: FileCheck2 },
+  { tab: 'employee_directory', name: 'Employee Directory', icon: Contact },
 ];
 
 const DEPT_GROUP_LABEL = 'หน่วยงานองค์กร';
 const ADMIN_GROUP_LABEL = 'การจัดการระบบ';
 const HOME_LABEL = 'เมนูของฉัน';
+const KB_LABEL = 'Knowledge Base';
 
 type OpenMenu = 'dept' | 'admin' | 'notif' | 'persona' | 'mobile' | null;
 
@@ -77,6 +58,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
     activeDeptFilter,
     setActiveDeptFilter,
     departments,
+    activeArticleId,
+    setActiveArticleId,
   } = useApp();
 
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
@@ -101,6 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   const goTo = (tab: string, dept: DepartmentId | null = null) => {
     setActiveTab(tab);
     setActiveDeptFilter(dept);
+    setActiveArticleId(null);
     setOpenMenu(null);
   };
 
@@ -127,6 +111,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
 
   const isHomeActive = activeTab === 'my_workspace';
   const isDeptActive = activeTab === 'department_view';
+  const isKbActive = activeTab === 'knowledge_base';
+  const activeArticle = isKbActive ? KNOWLEDGE_ARTICLES.find(a => a.id === activeArticleId) : undefined;
   // System-management screens this user may open
   const adminItems = ADMIN_NAV_ITEMS.filter(item => canAccessTab(item.tab));
   const activeAdminItem = adminItems.find(item => item.tab === activeTab);
@@ -137,6 +123,10 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   // Breadcrumb trail shown under the navbar
   const breadcrumb: string[] = isDeptActive
     ? [DEPT_GROUP_LABEL, activeDept?.nameEn ?? '']
+    : isKbActive
+      ? activeArticle
+        ? [KB_LABEL, activeArticle.title]
+        : [KB_LABEL]
     : activeAdminItem
       ? [ADMIN_GROUP_LABEL, activeAdminItem.name]
       : [HOME_LABEL];
@@ -200,6 +190,15 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             />
           </button>
 
+          <button
+            onClick={() => goTo('knowledge_base')}
+            aria-current={isKbActive ? 'page' : undefined}
+            className={topLinkClass(isKbActive)}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>{KB_LABEL}</span>
+          </button>
+
           {adminItems.length > 0 && (
           <div className="relative flex">
             <button
@@ -240,18 +239,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
           )}
         </nav>
 
-        {/* Right Tools: App Grid + Bell + Profile Avatar */}
+        {/* Right Tools: Bell + Profile Avatar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* App Grid Icon (Access Control Matrix shortcut) */}
-          {canAccessTab('access_control') && (
-            <button
-              onClick={() => goTo('access_control')}
-              title="ผังเมนูและสิทธิ์เข้าถึง (RBAC)"
-              className="hidden sm:block p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer"
-            >
-              <Grid className="w-4 h-4" />
-            </button>
-          )}
 
           {/* Notification Bell with unread count */}
           <div className="relative">
@@ -560,6 +549,18 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
               })}
             </div>
           )}
+
+          <button
+            onClick={() => goTo('knowledge_base')}
+            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-4 text-sm text-left cursor-pointer ${
+              isKbActive
+                ? 'bg-red-50 text-red-700 font-bold border-red-600'
+                : 'border-transparent text-slate-700 font-medium hover:bg-slate-50'
+            }`}
+          >
+            <BookOpen className={`w-4 h-4 ${isKbActive ? 'text-red-600' : 'text-slate-500'}`} />
+            <span>{KB_LABEL}</span>
+          </button>
 
           {/* Accordion: การจัดการระบบ (only the screens this user may open) */}
           {adminItems.length > 0 && (
