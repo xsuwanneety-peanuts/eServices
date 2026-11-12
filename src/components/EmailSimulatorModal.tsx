@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { renderStepEmail } from '../utils/emailTemplate';
 import {
   Mail,
   X,
@@ -20,11 +21,12 @@ export const EmailSimulatorModal: React.FC = () => {
   const {
     isEmailSimulatorModalOpen,
     setIsEmailSimulatorModalOpen,
-    emailNotifications,
+    myNotifications,
     selectedNotification,
     setSelectedNotificationId,
     executeEmailAction,
     requests,
+    workflows,
     setActiveRequestId,
   } = useApp();
 
@@ -34,10 +36,28 @@ export const EmailSimulatorModal: React.FC = () => {
 
   if (!isEmailSimulatorModalOpen) return null;
 
-  const currentEmail = selectedNotification || emailNotifications[0];
+  // Only approval emails addressed to the current user are shown
+  const emailNotifications = myNotifications;
+  const currentEmail =
+    emailNotifications.find(n => n.id === selectedNotification?.id) || emailNotifications[0];
   const matchedRequest = currentEmail
     ? requests.find(r => r.id === currentEmail.requestId)
     : null;
+
+  // Subject and body come from the template configured for this step in the workflow builder
+  const stepConfig =
+    currentEmail && matchedRequest
+      ? workflows
+          .find(w => w.id === matchedRequest.workflowId)
+          ?.steps.find(s => s.assigneeEmail === currentEmail.recipientEmail)
+      : undefined;
+  const renderedEmail =
+    currentEmail && matchedRequest
+      ? renderStepEmail(
+          stepConfig ?? { title: currentEmail.stepTitle, roleName: currentEmail.recipientName },
+          matchedRequest
+        )
+      : null;
 
   const handleApprove = () => {
     if (!currentEmail) return;
@@ -68,9 +88,6 @@ export const EmailSimulatorModal: React.FC = () => {
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-bold tracking-tight">Action-Driven Email Simulator</h3>
-                <span className="text-[10px] bg-red-100 text-red-900 font-bold px-2 py-0.5 rounded-full">
-                  Core Concept 3
-                </span>
               </div>
               <p className="text-xs text-red-100">
                 "เอกสารวิ่งหาคน ไม่ใช่คนเดินตามเอกสาร" — ผู้อนุมัติสามารถกดอนุมัติหรือตีกลับได้ทันทีจากอีเมล
@@ -160,11 +177,14 @@ export const EmailSimulatorModal: React.FC = () => {
                   </div>
                   <div className="pt-2 border-t border-slate-200/80">
                     <span className="text-slate-500">หัวข้อ: </span>
-                    <strong className="text-slate-900 text-sm">
-                      [โปรดพิจารณาอนุมัติคำร้องไอที] {currentEmail.requestCode}: {currentEmail.requestTitle}
-                    </strong>
+                    <strong className="text-slate-900 text-sm">{renderedEmail?.subject}</strong>
                   </div>
                 </div>
+
+                {/* Email body text (configured per step in the workflow builder) */}
+                <p className="text-xs text-slate-700 whitespace-pre-line leading-relaxed px-1">
+                  {renderedEmail?.body}
+                </p>
 
                 {/* Email Interactive Document Card */}
                 <div className="border-2 border-red-100 rounded-2xl p-5 bg-gradient-to-b from-red-50/20 to-white shadow-xs space-y-4">

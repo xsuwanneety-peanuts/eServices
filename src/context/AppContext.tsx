@@ -22,7 +22,32 @@ import {
   INITIAL_WORKFLOWS,
   INITIAL_REQUESTS,
   INITIAL_EMAIL_NOTIFICATIONS,
+  MAILBOX_OWNERS,
+  DEPARTMENT_MAILBOXES,
 } from '../data/mockData';
+
+const ADMIN_TABS = ['access_control', 'workflow_builder', 'traceability_center'];
+
+const isAdminRole = (user: UserPersona) => user.role === 'admin' || user.role === 'director';
+
+// Who may open each screen. System-management screens are for directors/admins
+// and for everyone in the IT team.
+const canUserAccessTab = (user: UserPersona, tab: string): boolean => {
+  if (!ADMIN_TABS.includes(tab)) return true;
+  return isAdminRole(user) || user.departmentId === 'it';
+};
+
+/** A progress update on one of the current user's own requests. */
+export interface RequestStatusUpdate {
+  key: string;
+  requestId: string;
+  requestCode: string;
+  requestTitle: string;
+  kind: 'progress' | 'completed' | 'returned';
+  message: string;
+  comment?: string;
+  timestamp: string;
+}
 
 interface AppContextType {
   // Corporate departments
@@ -85,6 +110,27 @@ interface AppContextType {
   toast: { message: string; type: 'success' | 'info' | 'warning' } | null;
   showToast: (message: string, type?: 'success' | 'info' | 'warning') => void;
 
+  // Role-based visibility
+  /** Directors and admins: see everything and manage the system. */
+  isSystemAdmin: boolean;
+  /** Whether the current user may open the given screen. */
+  canAccessTab: (tab: string) => boolean;
+  /** Anyone who takes part in approving requests (not a plain requester). */
+  canApprove: boolean;
+  /** True when the current step of the request is waiting on the current user. */
+  canActOnRequest: (request: DocumentRequest) => boolean;
+  canViewRequest: (request: DocumentRequest) => boolean;
+  /** Requests submitted by the current user. */
+  myRequests: DocumentRequest[];
+  /** Requests whose current step is waiting on the current user. */
+  approvalQueue: DocumentRequest[];
+  /** Approval notifications addressed to the current user. */
+  myNotifications: ActionEmailNotification[];
+  /** Progress updates on the current user's own requests, newest first. */
+  myStatusUpdates: RequestStatusUpdate[];
+  unseenStatusUpdateCount: number;
+  markStatusUpdatesSeen: () => void;
+
   // Stats
   userPendingCount: number;
   userApprovedCount: number;
@@ -94,8 +140,17 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserPersona>(USER_PERSONAS[0]); // Default to Suwannee (Procurement)
+  const [currentUser, setCurrentUserState] = useState<UserPersona>(USER_PERSONAS[0]); // Default to the first IT team member
   const [activeTab, setActiveTab] = useState<string>('my_workspace');
+  const [seenStatusUpdateKeys, setSeenStatusUpdateKeys] = useState<string[]>([]);
+
+  // Switching persona: leave system-management screens the new user may not open
+  const setCurrentUser = (user: UserPersona) => {
+    setCurrentUserState(user);
+    if (!canUserAccessTab(user, activeTab)) {
+      setActiveTab('my_workspace');
+    }
+  };
   const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
 
   const [menuPermissions, setMenuPermissions] = useState<MenuItemPermission[]>(INITIAL_MENU_PERMISSIONS);
@@ -476,6 +531,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return requests.find(r => r.id === activeRequestId) || null;
   }, [requests, activeRequestId]);
 
+  // ---- Role-based visibility ----
+  const isSystemAdmin = isAdminRole(currentUser);
+  const canApprove = currentUser.role !== 'employee';
+
+  // Does the current user handle approvals sent to this mailbox (for this request)?
+  const ownsMailbox = (email: string, request?: DocumentRequest): boolean => {
+    if (isSystemAdmin) return true;
+    if (!canApprove) return false;
+    if (email === currentUser.email) return true;
+    if (MAILBOX_OWNERS[email]?.includes(currentUser.id)) return true;
+    if (DEPARTMENT_MAILBOXES.includes(email) && request && currentUser.role === 'manager') {
+      const requestor = USER_PERSONAS.find(p => p.id === request.requestorId);
+      return requestor?.departmentId === currentUser.departmentId;
+    }
+    return false;
+  };
+
+  const canActOnRequest = (request: DocumentRequest): boolean => {
+    if (request.status !== 'in_review' && request.status !== 'pending') return false;
+    const step = request.steps[request.currentStepIndex];
+    if (!step || step.status !== 'pending') return false;
+    return ownsMailbox(step.approverEmail, request);
+  };
+
+  const canViewRequest = (request: DocumentRequest): boolean => {
+    if (isSystemAdmin) return true;
+    if (request.requestorId === currentUser.id) return true;
+    if (!canApprove) return false;
+    if (request.departmentId === currentUser.departmentId) return true; // staff of the servicing department
+    if (canActOnRequest(request)) return true;
+    return request.steps.some(step => step.status !== 'waiting' && ownsMailbox(step.approverEmail, request));
+  };
+
+  const myRequests = requests.filter(r => r.requestorId === currentUser.id);
+  const approvalQueue = requests.filter(canActOnRequest);
+
+  const myNotifications = emailNotifications.filter(notif =>
+    ownsMailbox(notif.recipientEmail, requests.find(r => r.id === notif.requestId))
+  );
+
+  // Latest progress on each of the current user's own requests
+  const myStatusUpdates: RequestStatusUpdate[] = myRequests.flatMap((req): RequestStatusUpdate[] => {
+    let latestIndex = -1;
+    req.steps.forEach((step, idx) => {
+      if (idx > 0 && step.timestamp && (step.status === 'approved' || step.status === 'rejected')) {
+        latestIndex = idx;
+      }
+    });
+    if (latestIndex < 0) return [];
+
+    const step = req.steps[latestIndex];
+    const nextStep = req.steps[latestIndex + 1];
+    const base = {
+      key: `${req.id}:${latestIndex}:${step.status}`,
+      requestId: req.id,
+      requestCode: req.code,
+      requestTitle: req.title,
+      comment: step.comment,
+      timestamp: step.timestamp || req.updatedAt,
+    };
+
+    if (step.status === 'rejected') {
+      return [{ ...base, kind: 'returned' as const, message: `ถูกตีกลับที่ขั้น "${step.stepTitle}"` }];
+    }
+    if (req.status === 'approved' || !nextStep) {
+      return [{ ...base, kind: 'completed' as const, message: 'อนุมัติครบทุกขั้นตอนแล้ว' }];
+    }
+    return [
+      {
+        ...base,
+        kind: 'progress' as const,
+        message: `ผ่านขั้น "${step.stepTitle}" แล้ว — รอ: ${nextStep.stepTitle}`,
+      },
+    ];
+  });
+
+  const unseenStatusUpdateCount = myStatusUpdates.filter(u => !seenStatusUpdateKeys.includes(u.key)).length;
+
+  const markStatusUpdatesSeen = () => {
+    setSeenStatusUpdateKeys(prev => {
+      const missing = myStatusUpdates.map(u => u.key).filter(key => !prev.includes(key));
+      return missing.length > 0 ? [...prev, ...missing] : prev;
+    });
+  };
+
   const selectedNotification = useMemo(() => {
     return emailNotifications.find(n => n.id === selectedNotificationId) || null;
   }, [emailNotifications, selectedNotificationId]);
@@ -536,6 +676,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsPrintModalOpen,
         toast,
         showToast,
+        isSystemAdmin,
+        canAccessTab: (tab: string) => canUserAccessTab(currentUser, tab),
+        canApprove,
+        canActOnRequest,
+        canViewRequest,
+        myRequests,
+        approvalQueue,
+        myNotifications,
+        myStatusUpdates,
+        unseenStatusUpdateCount,
+        markStatusUpdatesSeen,
         userPendingCount,
         userApprovedCount,
         userTotalCount,

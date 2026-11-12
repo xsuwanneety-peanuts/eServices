@@ -31,7 +31,7 @@ export const CORPORATE_DEPARTMENTS: DepartmentInfo[] = [
     nameEn: 'Information Technology',
     nameTh: 'เทคโนโลยีสารสนเทศ',
     headcount: 5,
-    shortName: 'IT (สารสนเทศ)',
+    shortName: 'IT',
     iconName: 'Laptop',
   },
   {
@@ -55,7 +55,7 @@ export const CORPORATE_DEPARTMENTS: DepartmentInfo[] = [
     nameEn: 'Claims (Motor & Non-Motor)',
     nameTh: 'สินไหมรถยนต์ + ทั่วไป',
     headcount: 17,
-    shortName: 'Claims (สินไหม)',
+    shortName: 'Claims',
     iconName: 'AlertCircle',
   },
   {
@@ -77,7 +77,7 @@ export const CORPORATE_DEPARTMENTS: DepartmentInfo[] = [
   {
     id: 'admin_procure',
     nameEn: 'Administrative & Procurement',
-    nameTh: 'ธุรการและจัดซื้อ',
+    nameTh: 'ธุรการ',
     headcount: 4,
     shortName: 'Admin & Procure',
     iconName: 'ShoppingBag',
@@ -87,28 +87,98 @@ export const CORPORATE_DEPARTMENTS: DepartmentInfo[] = [
     nameEn: 'Human Resources',
     nameTh: 'ทรัพยากรบุคคล',
     headcount: 1,
-    shortName: 'HR (บุคคล)',
+    shortName: 'HR',
     iconName: 'Users',
   },
 ];
 
-export const USER_PERSONAS: UserPersona[] = [
+// Initials avatar (inline SVG) for imported team members who have no photo on file
+const initialsAvatar = (name: string): string => {
+  const initials = name
+    .split(' ')
+    .map(part => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150"><rect width="150" height="150" fill="#b91c1c"/><text x="50%" y="50%" dy=".35em" text-anchor="middle" font-family="Arial, sans-serif" font-size="60" font-weight="700" fill="#ffffff">${initials}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
+
+const IT_DEPARTMENT_NAME = 'Information Technology (เทคโนโลยีสารสนเทศ)';
+
+// IT team members (5 HC) imported from the team roster
+const IT_TEAM_MEMBERS: UserPersona[] = [
   {
-    id: 'user-it-1',
-    name: 'ธีระพล เอกประเสริฐ',
-    email: 'teerapol.e@corp.th',
+    id: 'user-it-petcharat',
+    name: 'Petcharat Pimsawat',
+    email: 'petcharat.p@corp.th',
     departmentId: 'it',
-    departmentName: 'Information Technology (เทคโนโลยีสารสนเทศ)',
-    position: 'IT Specialist & Support Lead',
+    departmentName: IT_DEPARTMENT_NAME,
+    position: 'Product Owner',
+    role: 'employee',
+    avatar: initialsAvatar('Petcharat Pimsawat'),
+  },
+  {
+    id: 'user-it-aurathai',
+    name: 'Aurathai Jaiyah',
+    email: 'aurathai.j@corp.th',
+    departmentId: 'it',
+    departmentName: IT_DEPARTMENT_NAME,
+    position: 'IT Manager',
+    role: 'manager',
+    avatar: initialsAvatar('Aurathai Jaiyah'),
+  },
+  {
+    id: 'user-it-pipat',
+    name: 'Pipat Sripitiwittaya',
+    email: 'pipat.s@corp.th',
+    departmentId: 'it',
+    departmentName: IT_DEPARTMENT_NAME,
+    position: 'IT Director',
+    role: 'director',
+    avatar: initialsAvatar('Pipat Sripitiwittaya'),
+  },
+  {
+    id: 'user-it-bantoon',
+    name: 'Bantoon Junglakangthong',
+    email: 'bantoon.j@corp.th',
+    departmentId: 'it',
+    departmentName: IT_DEPARTMENT_NAME,
+    position: 'Developer',
     role: 'approver',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    avatar: initialsAvatar('Bantoon Junglakangthong'),
+  },
+  {
+    id: 'user-it-suwannee',
+    name: 'Suwannee Tongoaumyai',
+    email: 'suwannee.t@corp.th',
+    departmentId: 'it',
+    departmentName: IT_DEPARTMENT_NAME,
+    position: 'Application Support',
+    role: 'approver',
+    avatar: initialsAvatar('Suwannee Tongoaumyai'),
+  },
+];
+
+export const USER_PERSONAS: UserPersona[] = [
+  ...IT_TEAM_MEMBERS,
+  {
+    // Plain requester: submits requests only, takes no part in approvals
+    id: 'user-marketing-1',
+    name: 'สมหญิง จริงใจ',
+    email: 'somying.j@corp.th',
+    departmentId: 'sales',
+    departmentName: 'Sales & Intermediary Distribution (พาณิชย์และพันธมิตร)',
+    position: 'Marketing',
+    role: 'employee',
+    avatar: initialsAvatar('สมหญิง จริงใจ'),
   },
   {
     id: 'user-procure-1',
     name: 'สุวรรณี วงศ์สมบัติ',
     email: 'suwannee.w@corp.th',
     departmentId: 'admin_procure',
-    departmentName: 'Administrative & Procurement (ธุรการและจัดซื้อ)',
+    departmentName: 'Administrative & Procurement (ธุรการ)',
     position: 'เจ้าหน้าที่ธุรการและจัดซื้ออาวุโส',
     role: 'employee',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
@@ -154,6 +224,24 @@ export const USER_PERSONAS: UserPersona[] = [
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
   },
 ];
+
+// Which persona handles each shared approval mailbox.
+// Assumed mapping from job titles — adjust to the real responsibilities.
+export const MAILBOX_OWNERS: Record<string, string[]> = {
+  'security@corp.th': ['user-it-aurathai'],
+  'it.head@corp.th': ['user-it-aurathai'],
+  'it.support@corp.th': ['user-it-suwannee'],
+  'servicedesk@corp.th': ['user-it-suwannee'],
+  'iam.admin@corp.th': ['user-it-bantoon'],
+  'sysadmin@corp.th': ['user-it-bantoon'],
+  'architect@corp.th': ['user-it-bantoon'],
+  'bi.team@corp.th': ['user-it-bantoon'],
+  'cio@corp.th': ['user-it-pipat'],
+  'dpo@corp.th': ['user-legal-1'],
+};
+
+// Mailboxes that resolve to the manager of the requestor's own department
+export const DEPARTMENT_MAILBOXES = ['manager.dept@corp.th', 'director.dept@corp.th'];
 
 // Helper to grant all 10 departments permission by default
 const allDeptsAllowed = (): Record<DepartmentId, boolean> => ({
@@ -487,7 +575,7 @@ export const INITIAL_REQUESTS: DocumentRequest[] = [
       {
         stepIndex: 2,
         stepTitle: 'ฝ่ายความปลอดภัยไอที (IT Security)',
-        approverName: 'ธีระพล เอกประเสริฐ',
+        approverName: 'Aurathai Jaiyah',
         approverRole: 'IT Security Specialist',
         approverEmail: 'security@corp.th',
         status: 'pending',
@@ -552,7 +640,7 @@ export const INITIAL_REQUESTS: DocumentRequest[] = [
       {
         stepIndex: 2,
         stepTitle: 'ฝ่ายไอที (ตรวจสต็อก & สเปก)',
-        approverName: 'ธีระพล เอกประเสริฐ',
+        approverName: 'Suwannee Tongoaumyai',
         approverRole: 'IT Support & Asset Team',
         approverEmail: 'it.support@corp.th',
         status: 'approved',
@@ -609,7 +697,7 @@ export const INITIAL_REQUESTS: DocumentRequest[] = [
       {
         stepIndex: 1,
         stepTitle: 'IT Service Desk (รับเรื่อง & คัดกรอง)',
-        approverName: 'ธีระพล เอกประเสริฐ',
+        approverName: 'Suwannee Tongoaumyai',
         approverRole: 'IT Service Desk Lead',
         approverEmail: 'servicedesk@corp.th',
         status: 'approved',
@@ -675,7 +763,7 @@ export const INITIAL_REQUESTS: DocumentRequest[] = [
       {
         stepIndex: 2,
         stepTitle: 'IT Enterprise Architect (ประเมินสถาปัตยกรรม)',
-        approverName: 'ธีระพล เอกประเสริฐ',
+        approverName: 'Bantoon Junglakangthong',
         approverRole: 'IT Solutions Architect',
         approverEmail: 'architect@corp.th',
         status: 'pending',
@@ -781,5 +869,18 @@ export const INITIAL_EMAIL_NOTIFICATIONS: ActionEmailNotification[] = [
     createdAt: '23.07.2025 15:40',
     read: false,
     priority: 'P3',
+  },
+  {
+    id: 'email-notif-3',
+    requestId: 'req-it-005',
+    requestCode: 'REQ-2025-0105',
+    requestTitle: 'ขอข้อมูล: สรุปสถิติความเสียหายและการจ่ายสินไหมสำหรับนักคณิตศาสตร์ประกันภัย',
+    recipientEmail: 'dpo@corp.th',
+    recipientName: 'Compliance & Data Governance (ตรวจ PDPA)',
+    senderName: 'ระบบเดินเอกสาร e-Service',
+    stepTitle: 'Compliance & Data Governance (ตรวจ PDPA)',
+    createdAt: '28.07.2025 11:30',
+    read: false,
+    priority: 'P4',
   },
 ];

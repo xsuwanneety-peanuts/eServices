@@ -7,7 +7,7 @@ export type DepartmentId =
   | 'claims'           // Claims (Motor & Non-Motor) (สินไหมรถยนต์ + ทั่วไป - 17 HC)
   | 'finance_invest'   // Finance & Investment (การเงินและการลงทุน - 5 HC)
   | 'accounting_tax'   // Accounting, Taxation, FP&A and Actuary (บัญชีและภาษี - 7 HC)
-  | 'admin_procure'    // Administrative & Procurement (ธุรการและจัดซื้อ - 4 HC)
+  | 'admin_procure'    // Administrative & Procurement (ธุรการ - 4 HC)
   | 'hr';              // Human Resources (ทรัพยากรบุคคล - 1 HC)
 
 export interface DepartmentInfo {
@@ -51,6 +51,7 @@ export interface ApprovalStepConfig {
   roleName: string;
   assigneeEmail: string;
   sendEmailNotification: boolean;
+
   slaHours?: number;
   conditionDescription?: string;
 }

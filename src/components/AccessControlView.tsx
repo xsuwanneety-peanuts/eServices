@@ -8,7 +8,6 @@ import {
   Check,
   Search,
   Users,
-  Eye,
   Info,
 } from 'lucide-react';
 
@@ -18,8 +17,6 @@ export const AccessControlView: React.FC = () => {
     togglePermission,
     resetPermissions,
     currentUser,
-    setCurrentUser,
-    availablePersonas,
     departments,
     showToast,
   } = useApp();
@@ -43,9 +40,6 @@ export const AccessControlView: React.FC = () => {
               <ShieldCheck className="w-4 h-4" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">ตั้งค่าสิทธิ์เข้าถึง</h1>
-            <span className="text-xs bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full border border-red-200">
-              RBAC Matrix (10 Departments)
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             <strong>Personalized Workspace:</strong> กำหนดสิทธิ์ให้ 10 หน่วยงานในโครงสร้างองค์กรเข้าถึงแบบฟอร์มไอทีทั้ง 5 ด้านได้อย่างถูกต้อง
@@ -68,45 +62,6 @@ export const AccessControlView: React.FC = () => {
             <Save className="w-3.5 h-3.5" />
             <span>บันทึกการตั้งค่า</span>
           </button>
-        </div>
-      </div>
-
-      {/* Live Workspace Simulator Banner in Red Theme */}
-      <div className="bg-gradient-to-r from-red-50 via-rose-50 to-white p-4 rounded-2xl border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-            <Eye className="w-4 h-4" />
-          </div>
-          <div>
-            <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-              <span>ทดสอบมุมมองจริง (Live Preview):</span>
-              <span className="text-red-700 font-extrabold">{currentUser.name}</span>
-              <span className="text-[11px] bg-red-100 text-red-800 font-bold px-2 py-0.2 rounded">
-                {currentUser.departmentName}
-              </span>
-            </h4>
-            <p className="text-[11px] text-slate-500">
-              เมื่อเปลี่ยนติ๊กถูก แบบฟอร์มใน Workspace ของหน่วยงานนั้นจะปรับเปลี่ยนทันที
-            </p>
-          </div>
-        </div>
-
-        {/* Quick Switch Persona */}
-        <div className="flex items-center space-x-1 overflow-x-auto pb-1 sm:pb-0">
-          <span className="text-[11px] text-slate-500 font-bold mr-1 shrink-0">สลับดู:</span>
-          {availablePersonas.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setCurrentUser(p)}
-              className={`px-2 py-1 text-[11px] rounded-lg font-bold transition-all shrink-0 ${
-                p.id === currentUser.id
-                  ? 'bg-red-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-              }`}
-            >
-              {p.name.split(' ')[0]}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -139,8 +94,8 @@ export const AccessControlView: React.FC = () => {
                 </th>
                 {departments.map(dept => (
                   <th key={dept.id} className="py-3.5 px-3 text-center min-w-[110px]">
-                    <div className="text-xs font-bold text-slate-800 leading-tight">
-                      {dept.nameTh}
+                    <div className="text-xs font-bold text-slate-800 leading-tight" title={dept.nameEn}>
+                      {dept.shortName}
                     </div>
                   </th>
                 ))}

@@ -4,7 +4,6 @@ import { DepartmentId, ItRequestCategory } from '../types';
 import {
   FileText,
   Lock,
-  Plus,
   CheckCircle2,
   Users,
   Shield,
@@ -17,7 +16,6 @@ import {
   Calculator,
   ShoppingBag,
   ArrowRight,
-  Sparkles,
   FolderPlus,
   Inbox,
 } from 'lucide-react';
@@ -31,10 +29,13 @@ export const DepartmentWorkspaceView: React.FC = () => {
     isMenuPermittedForUser,
     requests,
     setActiveRequestId,
-    setIsNewRequestModalOpen,
     openNewRequestModal,
     setActiveTab,
     departments,
+    isSystemAdmin,
+    canAccessTab,
+    canApprove,
+    canViewRequest,
   } = useApp();
 
   const deptIcons: Record<DepartmentId, React.ElementType> = {
@@ -56,7 +57,10 @@ export const DepartmentWorkspaceView: React.FC = () => {
   const isItDepartment = currentDeptKey === 'it';
 
   // Requests belonging strictly to this department
-  const deptRequests = requests.filter(r => r.departmentId === currentDeptKey);
+  const deptRequests = requests.filter(r => r.departmentId === currentDeptKey && canViewRequest(r));
+  // Staff of this department (and system admins) see every request; others only their own
+  const seesAllDeptRequests =
+    isSystemAdmin || (canApprove && currentUser.departmentId === currentDeptKey);
 
   return (
     <div className="space-y-5">
@@ -67,29 +71,9 @@ export const DepartmentWorkspaceView: React.FC = () => {
             <DeptIcon className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{deptInfo.nameTh}</h1>
-            <p className="text-xs sm:text-sm text-red-100 mt-0.5">{deptInfo.nameEn}</p>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{deptInfo.nameEn}</h1>
+            <p className="text-xs sm:text-sm text-red-100 mt-0.5">{deptInfo.nameTh}</p>
           </div>
-        </div>
-
-        {/* Button strictly labeled 'สร้างคำขอใหม่' */}
-        <button
-          onClick={() => setIsNewRequestModalOpen(true)}
-          className="px-4 py-2 bg-white text-red-700 rounded-xl font-bold text-xs shadow-md hover:bg-slate-50 transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-        >
-          <Plus className="w-4 h-4 text-red-600" />
-          <span>สร้างคำขอใหม่</span>
-        </button>
-      </div>
-
-      {/* Role-Based Access info banner */}
-      <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 flex items-start space-x-3">
-        <Sparkles className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-        <div>
-          <p className="font-bold">Personalized Workspace (หน้าจอทำงานเฉพาะบุคคล)</p>
-          <p className="text-red-700 mt-0.5">
-            คุณกำลังดูมุมมองหน่วยงาน: <strong>{deptInfo.nameTh}</strong> ({deptInfo.nameEn})
-          </p>
         </div>
       </div>
 
@@ -99,7 +83,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                แบบฟอร์มฝ่ายเทคโนโลยีสารสนเทศ (IT Service Catalog)
+                แบบฟอร์มฝ่าย Information Technology (IT Service Catalog)
               </h3>
               <p className="text-xs text-slate-500">
                 เปิดให้บริการทั้งหมด 5 แบบฟอร์มสำหรับทุกหน่วยงานในองค์กร
@@ -162,6 +146,10 @@ export const DepartmentWorkspaceView: React.FC = () => {
                       >
                         เปิดกรอกแบบฟอร์ม →
                       </button>
+                    ) : !canAccessTab('access_control') ? (
+                      <span className="text-[11px] text-slate-400">
+                        หน่วยงานของคุณยังไม่ได้รับสิทธิ์ใช้แบบฟอร์มนี้
+                      </span>
                     ) : (
                       <button
                         onClick={() => setActiveTab('access_control')}
@@ -182,7 +170,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                แบบฟอร์มประจำหน่วยงาน ({deptInfo.nameTh})
+                แบบฟอร์มประจำหน่วยงาน ({deptInfo.nameEn})
               </h3>
               <p className="text-xs text-slate-500">
                 ขณะนี้แบบฟอร์มของหน่วยงานนี้ยังไม่ได้เปิดใช้งาน
@@ -199,7 +187,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
                 ยังไม่มีแบบฟอร์มเปิดใช้งานในหน่วยงานนี้
               </h4>
               <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-                อยู่ระหว่างการจัดเตรียมและออกแบบฟอร์มสำหรับ {deptInfo.nameTh} ({deptInfo.nameEn}) โดยปัจจุบันระบบเปิดให้บริการเฉพาะแบบฟอร์มของฝ่ายเทคโนโลยีสารสนเทศ 5 ด้าน
+                อยู่ระหว่างการจัดเตรียมและออกแบบฟอร์มสำหรับ {deptInfo.nameEn} ({deptInfo.nameTh}) โดยปัจจุบันระบบเปิดให้บริการเฉพาะแบบฟอร์มของฝ่าย Information Technology 5 ด้าน
               </p>
             </div>
             <div className="pt-2 flex justify-center">
@@ -210,7 +198,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
                 }}
                 className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <span>ไปที่แบบฟอร์มฝ่ายเทคโนโลยีสารสนเทศ</span>
+                <span>ไปที่แบบฟอร์มฝ่าย Information Technology</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -221,7 +209,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {/* Recent Requests for this Department */}
       <div>
         <h3 className="text-sm font-bold text-slate-900 mb-3">
-          คำขอในหน่วยงาน {deptInfo.nameTh} ({deptRequests.length})
+          {seesAllDeptRequests ? 'คำขอในหน่วยงาน' : 'คำขอของฉันในหน่วยงาน'} {deptInfo.nameEn} ({deptRequests.length})
         </h3>
         {deptRequests.length > 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
@@ -265,7 +253,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
           </div>
         ) : (
           <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-400">
-            ยังไม่มีรายการคำขอในหน่วยงานนี้ คุณสามารถกด "สร้างคำขอใหม่" ด้านบนเพื่อส่งคำขอ
+            {seesAllDeptRequests ? 'ยังไม่มีรายการคำขอในหน่วยงานนี้' : 'คุณยังไม่มีคำขอในหน่วยงานนี้'}
           </div>
         )}
       </div>
