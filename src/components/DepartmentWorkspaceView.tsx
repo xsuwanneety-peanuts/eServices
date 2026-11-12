@@ -54,7 +54,8 @@ export const DepartmentWorkspaceView: React.FC = () => {
   const currentDeptKey = activeDeptFilter || 'it';
   const deptInfo = departments.find(d => d.id === currentDeptKey) || departments[2];
   const DeptIcon = deptIcons[currentDeptKey] || Laptop;
-  const isItDepartment = currentDeptKey === 'it';
+  // Forms this department provides (configured in ตั้งค่าสิทธิ์เข้าถึง)
+  const deptForms = menuPermissions.filter(f => f.ownerDepartmentId === currentDeptKey);
 
   // Requests belonging strictly to this department
   const deptRequests = requests.filter(r => r.departmentId === currentDeptKey && canViewRequest(r));
@@ -77,25 +78,23 @@ export const DepartmentWorkspaceView: React.FC = () => {
         </div>
       </div>
 
-      {/* Forms Section: IT forms ONLY appear in เทคโนโลยีสารสนเทศ */}
-      {isItDepartment ? (
+      {/* Forms Section: only the forms this department provides */}
+      {deptForms.length > 0 ? (
         <div>
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                แบบฟอร์มฝ่าย Information Technology (IT Service Catalog)
-              </h3>
+              <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มฝ่าย {deptInfo.nameEn}</h3>
               <p className="text-xs text-slate-500">
-                เปิดให้บริการทั้งหมด 5 แบบฟอร์มสำหรับทุกหน่วยงานในองค์กร
+                ทั้งหมด {deptForms.length} แบบฟอร์ม — เปิดใช้ได้ตามสิทธิ์ของหน่วยงานคุณ
               </p>
             </div>
             <span className="text-xs bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-md border border-red-200">
-              5 แบบฟอร์มไอที
+              {deptForms.length} แบบฟอร์ม
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {menuPermissions.map(form => {
+            {deptForms.map(form => {
               const hasAccess =
                 currentUser.role === 'admin' ||
                 isMenuPermittedForUser(form.menuCode);

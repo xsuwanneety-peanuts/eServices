@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { ApprovalStepConfig } from '../types';
+import { ApprovalStepConfig, StepApproverType } from '../types';
 import {
   GitBranch,
   ArrowDown,
@@ -12,8 +12,11 @@ import {
   Clock,
   Send,
   Eye,
+  Contact,
+  AlertTriangle,
 } from 'lucide-react';
 import { EMAIL_SENDER_NAME, renderStepEmail } from '../utils/emailTemplate';
+import { APPROVER_TYPE_LABELS, resolveStepApprover } from '../utils/approvers';
 
 export const WorkflowBuilderView: React.FC = () => {
   const {
@@ -30,8 +33,20 @@ export const WorkflowBuilderView: React.FC = () => {
     setSelectedNotificationId,
     myNotifications,
     requests,
+    employees,
+    canAccessTab,
+    setActiveTab,
     showToast,
   } = useApp();
+
+  // Short description of who approves a step, used in the diagram
+  const approverDescription = (step: ApprovalStepConfig): string => {
+    if (step.approverType === 'employee') {
+      const person = employees.find(e => e.id === step.approverEmployeeId);
+      return person ? `${person.name} (${person.position})` : 'ยังไม่ได้เลือกพนักงาน';
+    }
+    return APPROVER_TYPE_LABELS[step.approverType];
+  };
 
   const [activeStepEditingId, setActiveStepEditingId] = useState<string | null>(null);
 
@@ -124,7 +139,7 @@ export const WorkflowBuilderView: React.FC = () => {
                       </div>
                       <div className="text-sm font-bold text-slate-800">{step.title}</div>
                       <div className="text-xs text-slate-500 mt-0.5 flex items-center justify-center gap-1">
-                        <span>{step.roleName}</span>
+                        <span>{approverDescription(step)}</span>
                         {step.sendEmailNotification && (
                           <Mail className="w-3 h-3 text-red-600 inline ml-1" />
                         )}
@@ -159,8 +174,10 @@ export const WorkflowBuilderView: React.FC = () => {
         <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
-              <h3 className="text-sm font-bold text-slate-900">กำหนดรายละเอียดผู้อนุมัติ & การแจ้งเตือน</h3>
-              <p className="text-xs text-slate-400">ระบุอีเมลหรือตำแหน่งงานที่ต้องการให้เอกสารส่งถึงโดยอัตโนมัติ</p>
+              <h3 className="text-sm font-bold text-slate-900">กำหนดผู้อนุมัติ & การแจ้งเตือน</h3>
+              <p className="text-xs text-slate-400">
+                เลือกผู้อนุมัติจาก Employee Directory ระบบจะส่งอีเมลถึงผู้อนุมัติตามข้อมูลพนักงานในนั้น
+              </p>
             </div>
             <button
               onClick={() => {
@@ -227,33 +244,73 @@ export const WorkflowBuilderView: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-xs">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        ตำแหน่ง / ผู้มีอำนาจ
-                      </label>
-                      <input
-                        type="text"
-                        value={step.roleName}
-                        disabled={isFirst}
-                        onChange={e => updateWorkflowStep(step.id, { roleName: e.target.value })}
-                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 text-slate-800 focus:outline-hidden focus:border-red-500"
-                      />
-                    </div>
+                  {isFirst ? (
+                    <p className="mt-3 text-xs text-slate-500">ผู้ยื่นคำร้อง — ระบบใช้ข้อมูลของพนักงานที่ส่งคำขอ</p>
+                  ) : (
+                    (() => {
+                      const chosen =
+                        step.approverType === 'employee'
+                          ? employees.find(e => e.id === step.approverEmployeeId)
+                          : undefined;
+                      const selectClass =
+                        'w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-hidden focus:border-red-500';
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-xs">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">ผู้อนุมัติ</label>
+                            <select
+                              value={step.approverType}
+                              onChange={e => {
+                                const approverType = e.target.value as StepApproverType;
+                                updateWorkflowStep(step.id, {
+                                  approverType,
+                                  approverEmployeeId:
+                                    approverType === 'employee' ? step.approverEmployeeId ?? employees[0]?.id : undefined,
+                                });
+                              }}
+                              className={selectClass}
+                            >
+                              {(['reports_to', 'reports_to_2', 'employee'] as StepApproverType[]).map(type => (
+                                <option key={type} value={type}>
+                                  {APPROVER_TYPE_LABELS[type]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                        อีเมลแจ้งเตือน (Email Routing)
-                      </label>
-                      <input
-                        type="email"
-                        value={step.assigneeEmail}
-                        disabled={isFirst}
-                        onChange={e => updateWorkflowStep(step.id, { assigneeEmail: e.target.value })}
-                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white disabled:bg-slate-100 text-slate-800 focus:outline-hidden focus:border-red-500 font-mono text-[11px]"
-                      />
-                    </div>
-                  </div>
+                          {step.approverType === 'employee' ? (
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                พนักงาน (ส่งอีเมลถึง)
+                              </label>
+                              <select
+                                value={step.approverEmployeeId ?? ''}
+                                onChange={e => updateWorkflowStep(step.id, { approverEmployeeId: e.target.value })}
+                                className={selectClass}
+                              >
+                                {!chosen && <option value="">— เลือกพนักงาน —</option>}
+                                {employees.map(person => (
+                                  <option key={person.id} value={person.id}>
+                                    {person.name} — {person.position}
+                                  </option>
+                                ))}
+                              </select>
+                              {chosen && (
+                                <p className="mt-1 text-[11px] text-slate-400 font-mono break-all">{chosen.email}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="block text-[11px] font-semibold text-slate-600 mb-1">ส่งอีเมลถึง</span>
+                              <p className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 leading-relaxed">
+                                ดึงจาก Report to ของผู้ยื่นแต่ละคนใน Employee Directory
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
+                  )}
 
                   {!isFirst && (
                     <div className="mt-3 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
@@ -311,13 +368,28 @@ export const WorkflowBuilderView: React.FC = () => {
                 : ' (ยังไม่มีคำร้องของแบบฟอร์มนี้ จึงแสดงด้วยข้อมูลสมมติ)'}
             </p>
           </div>
+          {canAccessTab('employee_directory') && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('employee_directory')}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer shrink-0"
+            >
+              <Contact className="w-3.5 h-3.5" />
+              จัดการ Report to ใน Employee Directory
+            </button>
+          )}
 
         </div>
 
         {emailSteps.length > 0 ? (
           <div className="max-w-2xl">
             {emailSteps.map(step => {
-              const email = renderStepEmail(step, previewRequest);
+              const approver = previewRequest
+                ? resolveStepApprover(step, previewRequest.requestorId, employees)
+                : step.approverType === 'employee'
+                  ? employees.find(e => e.id === step.approverEmployeeId)
+                  : undefined;
+              const email = renderStepEmail(step.title, approver?.name, previewRequest);
               return (
                 <div key={step.id} className="rounded-xl border border-slate-200 overflow-hidden text-xs">
                   <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
@@ -331,7 +403,19 @@ export const WorkflowBuilderView: React.FC = () => {
                       จาก: <span className="text-slate-800">{EMAIL_SENDER_NAME}</span>
                     </p>
                     <p className="text-slate-500 break-all">
-                      ถึง: <span className="text-slate-800 font-mono text-[11px]">{step.assigneeEmail}</span>
+                      ถึง:{' '}
+                      {approver ? (
+                        <span className="text-slate-800">
+                          {approver.name} <span className="font-mono text-[11px]">&lt;{approver.email}&gt;</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-amber-700 font-semibold">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          {previewRequest
+                            ? `ยังไม่มีผู้รับ — ${previewRequest.requestorName} ยังไม่ได้ตั้ง Report to`
+                            : 'ผู้บังคับบัญชาของผู้ยื่น (ตาม Employee Directory)'}
+                        </span>
+                      )}
                     </p>
                     <p className="pt-2 border-t border-slate-100 font-bold text-slate-900 break-words">
                       {email.subject}
