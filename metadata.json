@@ -1,0 +1,6 @@
+{
+  "name": "e-Service - Smart Paperless Workflow",
+  "description": "Smart Paperless Workflow: ระบบเอกสารอัจฉริยะที่ยืดหยุ่นและปรับแต่งได้ตามโครงสร้างองค์กร พร้อม Personalized Workspace, No-Code Workflow Builder, Action-Driven Notification และ 100% Traceability",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
