@@ -44,9 +44,6 @@ export const TraceabilityCenterView: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               100% Traceability: ตรวจสอบสถานะคำร้องไอที
             </h1>
-            <span className="text-xs bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full border border-red-200">
-              Real-time ITIL Audit
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             <strong>Core Concept 4:</strong> โปร่งใส ตรวจสอบได้ เอกสารไม่หาย — เช็กสถานะคำร้องไอทีได้ตลอด 24 ชั่วโมงว่าติดอยู่ที่ใคร พร้อมลายเซ็นดิจิทัล

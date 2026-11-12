@@ -27,6 +27,7 @@ export const RequestDetailModal: React.FC = () => {
     rejectRequest,
     currentUser,
     setIsPrintModalOpen,
+    canActOnRequest,
   } = useApp();
 
   const [approveComment, setApproveComment] = useState('เห็นชอบอนุมัติ');
@@ -39,6 +40,8 @@ export const RequestDetailModal: React.FC = () => {
   const isPending = activeRequest.status === 'in_review' || activeRequest.status === 'pending';
   const isApproved = activeRequest.status === 'approved';
   const isReturned = activeRequest.status === 'returned';
+  // Only the person responsible for the current step may approve or return it
+  const canDecide = canActOnRequest(activeRequest);
 
   const handleApprove = () => {
     approveRequest(activeRequest.id, approveComment);
@@ -65,9 +68,6 @@ export const RequestDetailModal: React.FC = () => {
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-base font-bold tracking-tight">100% Traceability: ตรวจสอบสถานะคำร้องไอที</h3>
-                <span className="text-[10px] bg-red-100 text-red-900 font-bold px-2 py-0.5 rounded-full">
-                  Real-time Audit
-                </span>
               </div>
               <p className="text-xs text-red-100">
                 รหัสคำร้อง: <strong className="text-white font-mono">{activeRequest.code}</strong> • ตรวจสอบได้ทุกวินาที เอกสารไม่มีวันสูญหาย
@@ -310,8 +310,8 @@ export const RequestDetailModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Action Area for Approver */}
-          {isPending && (
+          {/* Quick Action Area — shown only to the approver of the current step */}
+          {isPending && canDecide && (
             <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50/30 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-red-950 flex items-center gap-1.5">

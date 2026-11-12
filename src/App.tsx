@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
-import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { AccessControlView } from './components/AccessControlView';
 import { WorkflowBuilderView } from './components/WorkflowBuilderView';
@@ -20,28 +19,26 @@ import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { activeTab, toast } = useApp();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-50 text-slate-800 overflow-hidden">
-      {/* Top Header Navbar fixed at the top */}
-      <Navbar />
+      {/* Top Navigation Bar + Mega Menu, pinned above the scrolling content */}
+      <Navbar scrolled={isScrolled} />
 
-      {/* Main Layout: Left Sidebar + Main Viewport Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar */}
-        <Sidebar />
-
-        {/* Scrollable Main Workspace Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 bg-slate-50/60">
-          <div className="max-w-6xl mx-auto">
-            {activeTab === 'my_workspace' && <DashboardView />}
-            {activeTab === 'access_control' && <AccessControlView />}
-            {activeTab === 'workflow_builder' && <WorkflowBuilderView />}
-            {activeTab === 'traceability_center' && <TraceabilityCenterView />}
-            {activeTab === 'department_view' && <DepartmentWorkspaceView />}
-          </div>
-        </main>
-      </div>
+      {/* Scrollable Main Workspace Content (full width, centered, max 1280px) */}
+      <main
+        onScroll={event => setIsScrolled(event.currentTarget.scrollTop > 4)}
+        className="flex-1 overflow-y-auto py-4 sm:py-6 lg:py-7 bg-slate-50/60"
+      >
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6">
+          {activeTab === 'my_workspace' && <DashboardView />}
+          {activeTab === 'access_control' && <AccessControlView />}
+          {activeTab === 'workflow_builder' && <WorkflowBuilderView />}
+          {activeTab === 'traceability_center' && <TraceabilityCenterView />}
+          {activeTab === 'department_view' && <DepartmentWorkspaceView />}
+        </div>
+      </main>
 
       {/* Global Modals */}
       <NewRequestModal />

@@ -11,7 +11,9 @@ import {
   Save,
   Clock,
   Send,
+  Eye,
 } from 'lucide-react';
+import { EMAIL_SENDER_NAME, renderStepEmail } from '../utils/emailTemplate';
 
 export const WorkflowBuilderView: React.FC = () => {
   const {
@@ -26,13 +28,22 @@ export const WorkflowBuilderView: React.FC = () => {
     saveWorkflowChanges,
     setIsEmailSimulatorModalOpen,
     setSelectedNotificationId,
-    emailNotifications,
+    myNotifications,
+    requests,
     showToast,
   } = useApp();
 
   const [activeStepEditingId, setActiveStepEditingId] = useState<string | null>(null);
 
   if (!activeWorkflow) return null;
+
+  // A real request of this form (if any) supplies the details shown in the email previews
+  const previewRequest = requests.find(r => r.workflowId === activeWorkflow.id) ?? null;
+  // One sample is enough: every step gets the same wording, so preview the first step that sends an email
+  // (the first step of a flow is the requester, who gets none)
+  const emailSteps = activeWorkflow.steps
+    .filter((step, idx) => idx > 0 && step.sendEmailNotification)
+    .slice(0, 1);
 
   return (
     <div className="space-y-5">
@@ -46,9 +57,6 @@ export const WorkflowBuilderView: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               ตั้งค่า Flow อนุมัติ & แจ้งเตือนอีเมล
             </h1>
-            <span className="text-xs bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full border border-red-200">
-              No-Code ITIL Workflows
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             <strong>Core Concept 2:</strong> ปรับเปลี่ยนลำดับสายการอนุมัติของแบบฟอร์มไอทีทั้ง 5 ด้านได้อย่างอิสระ ระบุผู้รับผิดชอบ และเปิดระบบแจ้งเตือนอีเมลอัตโนมัติ
@@ -156,11 +164,11 @@ export const WorkflowBuilderView: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                if (emailNotifications.length > 0) {
-                  setSelectedNotificationId(emailNotifications[0].id);
+                if (myNotifications.length > 0) {
+                  setSelectedNotificationId(myNotifications[0].id);
                   setIsEmailSimulatorModalOpen(true);
                 } else {
-                  showToast('ยังไม่มีอีเมลในกล่องจำลอง', 'info');
+                  showToast('ยังไม่มีอีเมลรออนุมัติที่ส่งถึงคุณ — ดูตัวอย่างอีเมลได้ที่ด้านล่างของหน้านี้', 'info');
                 }
               }}
               className="text-xs text-red-600 hover:text-red-800 font-bold flex items-center gap-1 cursor-pointer"
@@ -286,6 +294,67 @@ export const WorkflowBuilderView: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Outgoing email previews for the selected form — read-only, one standard wording */}
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <Eye className="w-4 h-4 text-red-600" />
+              ตัวอย่างอีเมลที่จะส่งออก — {activeWorkflow.formTitle}
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              ทุกแบบฟอร์มและทุกขั้นตอนใช้ข้อความมาตรฐานชุดเดียวกัน ต่างกันเฉพาะผู้รับและรายละเอียดคำร้อง
+              {previewRequest
+                ? ` (ตัวอย่างนี้ใช้ข้อมูลจากคำร้อง ${previewRequest.code})`
+                : ' (ยังไม่มีคำร้องของแบบฟอร์มนี้ จึงแสดงด้วยข้อมูลสมมติ)'}
+            </p>
+          </div>
+
+        </div>
+
+        {emailSteps.length > 0 ? (
+          <div className="max-w-2xl">
+            {emailSteps.map(step => {
+              const email = renderStepEmail(step, previewRequest);
+              return (
+                <div key={step.id} className="rounded-xl border border-slate-200 overflow-hidden text-xs">
+                  <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-red-100 text-red-700 text-[11px] font-bold flex items-center justify-center shrink-0">
+                      {step.stepIndex + 1}
+                    </span>
+                    <span className="font-bold text-slate-800 truncate">{step.title}</span>
+                  </div>
+                  <div className="p-3.5 space-y-2">
+                    <p className="text-slate-500">
+                      จาก: <span className="text-slate-800">{EMAIL_SENDER_NAME}</span>
+                    </p>
+                    <p className="text-slate-500 break-all">
+                      ถึง: <span className="text-slate-800 font-mono text-[11px]">{step.assigneeEmail}</span>
+                    </p>
+                    <p className="pt-2 border-t border-slate-100 font-bold text-slate-900 break-words">
+                      {email.subject}
+                    </p>
+                    <p className="text-slate-700 whitespace-pre-line leading-relaxed break-words">{email.body}</p>
+                    <div className="pt-1 flex flex-wrap gap-1.5">
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">
+                        อนุมัติทันที
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-700 text-[11px] font-semibold">
+                        ตีกลับพร้อมเหตุผล
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400">
+            แบบฟอร์มนี้ยังไม่มีขั้นตอนที่เปิดส่งอีเมลแจ้งเตือน
+          </p>
+        )}
       </div>
     </div>
   );

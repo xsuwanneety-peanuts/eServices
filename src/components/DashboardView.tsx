@@ -12,35 +12,33 @@ import {
   FileText,
   ArrowRight,
   Inbox,
-  BellRing,
   Printer,
-  Sparkles,
 } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
   const {
     requests,
     setActiveRequestId,
-    setIsNewRequestModalOpen,
     setIsPrintModalOpen,
-    userPendingCount,
-    userApprovedCount,
-    userTotalCount,
     currentUser,
-    setActiveTab,
-    emailNotifications,
-    setIsEmailSimulatorModalOpen,
+    isSystemAdmin,
+    canApprove,
+    myRequests,
+    approvalQueue,
   } = useApp();
 
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Pending approval email notifications count
-  const pendingEmailsCount = emailNotifications.filter(n => !n.actionTaken).length;
+  // Requesters see only what they submitted; directors/admins see the whole system
+  const scopedRequests = isSystemAdmin ? requests : myRequests;
+  const pendingCount = scopedRequests.filter(r => r.status === 'in_review' || r.status === 'pending').length;
+  const approvedCount = scopedRequests.filter(r => r.status === 'approved').length;
+  const listTitle = isSystemAdmin ? 'คำร้องทั้งหมดในระบบ' : 'คำร้องของฉัน';
 
   // Filter requests
   const filteredRequests = useMemo(() => {
-    return requests.filter(req => {
+    return scopedRequests.filter(req => {
       const isPending = req.status === 'in_review' || req.status === 'pending';
       const isApproved = req.status === 'approved';
 
@@ -59,7 +57,7 @@ export const DashboardView: React.FC = () => {
 
       return true;
     });
-  }, [requests, filterStatus, searchQuery]);
+  }, [scopedRequests, filterStatus, searchQuery]);
 
   return (
     <div className="space-y-5">
@@ -70,9 +68,6 @@ export const DashboardView: React.FC = () => {
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               เมนูของฉัน
             </h1>
-            <span className="text-xs bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full border border-red-200">
-              Personalized Workspace
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             ยินดีต้อนรับคุณ <strong className="text-slate-800 font-semibold">{currentUser.name}</strong> ({currentUser.position} • {currentUser.departmentName})
@@ -82,21 +77,6 @@ export const DashboardView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5 shrink-0">
-          <button
-            onClick={() => setIsEmailSimulatorModalOpen(true)}
-            className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <BellRing className="w-3.5 h-3.5 text-red-600" />
-            <span>การแจ้งเตือน ({pendingEmailsCount})</span>
-          </button>
-          <button
-            onClick={() => setIsNewRequestModalOpen(true)}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>+ สร้างคำขอใหม่</span>
-          </button>
-        </div>
       </div>
 
       {/* Top Summary Cards (3 KPI Metrics in Corporate Red palette) */}
@@ -107,7 +87,7 @@ export const DashboardView: React.FC = () => {
             <div>
               <span className="text-xs sm:text-sm font-semibold text-slate-600 block">รอตรวจสอบ</span>
               <span className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 block">
-                {userPendingCount}
+                {pendingCount}
               </span>
               <span className="text-[11px] text-slate-400 mt-1 block">
                 คำร้องที่อยู่ระหว่างการพิจารณา
@@ -135,7 +115,7 @@ export const DashboardView: React.FC = () => {
                 />
               </svg>
               <span className="absolute text-[10px] font-bold text-amber-600">
-                {requests.length > 0 ? Math.round((userPendingCount / requests.length) * 100) : 0}%
+                {scopedRequests.length > 0 ? Math.round((pendingCount / scopedRequests.length) * 100) : 0}%
               </span>
             </div>
           </div>
@@ -148,7 +128,7 @@ export const DashboardView: React.FC = () => {
             <div>
               <span className="text-xs sm:text-sm font-semibold text-slate-600 block">อนุมัติแล้ว</span>
               <span className="text-3xl sm:text-4xl font-black text-red-700 mt-1 block">
-                {userApprovedCount}
+                {approvedCount}
               </span>
               <span className="text-[11px] text-slate-400 mt-1 block">
                 คำร้องเสร็จสิ้นสมบูรณ์
@@ -176,7 +156,7 @@ export const DashboardView: React.FC = () => {
                 />
               </svg>
               <span className="absolute text-[10px] font-bold text-red-600">
-                {requests.length > 0 ? Math.round((userApprovedCount / requests.length) * 100) : 0}%
+                {scopedRequests.length > 0 ? Math.round((approvedCount / scopedRequests.length) * 100) : 0}%
               </span>
             </div>
           </div>
@@ -187,9 +167,9 @@ export const DashboardView: React.FC = () => {
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-xs relative overflow-hidden">
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-xs sm:text-sm font-semibold text-slate-600 block">คำร้องทั้งหมด</span>
+              <span className="text-xs sm:text-sm font-semibold text-slate-600 block">{listTitle}</span>
               <span className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 block">
-                {requests.length}
+                {scopedRequests.length}
               </span>
               <span className="text-[11px] text-slate-400 mt-1 block">
                 บันทึกในระบบดิจิทัล 100%
@@ -203,13 +183,57 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Section: คำร้องล่าสุด (Recent Requests List with Full Traceability) */}
+      {/* Approver queue: requests whose current step is waiting on this user */}
+      {canApprove && (
+        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-red-200 shadow-xs space-y-3">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-4 h-4 text-red-600" />
+            <h2 className="text-base font-bold text-slate-900">รอฉันอนุมัติ</h2>
+            <span className="text-xs bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-full border border-red-200">
+              {approvalQueue.length} รายการ
+            </span>
+          </div>
+
+          {approvalQueue.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {approvalQueue.map(req => (
+                <button
+                  key={req.id}
+                  type="button"
+                  onClick={() => setActiveRequestId(req.id)}
+                  className="w-full py-3 px-3 rounded-xl hover:bg-red-50/40 cursor-pointer transition-colors text-left flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                >
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-mono font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                        {req.code}
+                      </span>
+                      <span className="text-sm font-bold text-slate-800">{req.title}</span>
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-1">
+                      ยื่นโดย: {req.requestorName} • ขั้นตอนที่ {req.currentStepIndex + 1}:{' '}
+                      {req.steps[req.currentStepIndex]?.stepTitle}
+                    </span>
+                  </span>
+                  <span className="text-xs font-bold text-red-600 shrink-0 flex items-center gap-1">
+                    เปิดพิจารณา <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">ไม่มีคำร้องที่รอคุณอนุมัติในตอนนี้</p>
+          )}
+        </div>
+      )}
+
+      {/* Main Section: Requests List with Full Traceability */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
         {/* Controls Bar: Filters & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
           <div className="flex items-center space-x-2">
             <h2 className="text-base font-bold text-slate-900">
-              คำร้องล่าสุด
+              {listTitle}
             </h2>
             <span className="text-xs bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">
               {filteredRequests.length} รายการ
@@ -227,7 +251,7 @@ export const DashboardView: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                ทั้งหมด ({requests.length})
+                ทั้งหมด ({scopedRequests.length})
               </button>
               <button
                 onClick={() => setFilterStatus('pending')}
@@ -237,7 +261,7 @@ export const DashboardView: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                รอตรวจสอบ ({userPendingCount})
+                รอตรวจสอบ ({pendingCount})
               </button>
               <button
                 onClick={() => setFilterStatus('approved')}
@@ -247,7 +271,7 @@ export const DashboardView: React.FC = () => {
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                อนุมัติแล้ว ({userApprovedCount})
+                อนุมัติแล้ว ({approvedCount})
               </button>
             </div>
 
@@ -378,17 +402,15 @@ export const DashboardView: React.FC = () => {
               <Inbox className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-700">ไม่พบคำร้องที่ตรงกับเงื่อนไข</p>
+              <p className="text-sm font-bold text-slate-700">
+                {scopedRequests.length === 0 ? 'คุณยังไม่มีคำร้องในระบบ' : 'ไม่พบคำร้องที่ตรงกับเงื่อนไข'}
+              </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                ลองเปลี่ยนคำค้นหา หรือคลิก "สร้างคำขอใหม่" ด้านบนเพื่อส่งคำขอเข้าสู่ระบบ
+                {scopedRequests.length === 0
+                  ? 'เลือกหน่วยงานจากเมนู "หน่วยงานองค์กร" เพื่อเปิดกรอกแบบฟอร์ม'
+                  : 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'}
               </p>
             </div>
-            <button
-              onClick={() => setIsNewRequestModalOpen(true)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>+ สร้างคำขอใหม่</span>
-            </button>
           </div>
         )}
       </div>

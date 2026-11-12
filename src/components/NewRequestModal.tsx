@@ -39,7 +39,11 @@ export const NewRequestModal: React.FC = () => {
     createNewRequest,
     currentUser,
     setActiveRequestId,
+    availablePersonas,
   } = useApp();
+
+  // IT team members who can be assigned as the person responsible
+  const itTeamMembers = availablePersonas.filter(p => p.departmentId === 'it');
 
   // 5 IT categories as requested
   const itCategories: {
@@ -679,9 +683,11 @@ export const NewRequestModal: React.FC = () => {
               <option value="ยังไม่มอบหมาย (ส่งเข้าคิวกลางฝ่ายไอที)">
                 ยังไม่มอบหมาย (ส่งเข้าคิวกลางฝ่ายไอที - IT Central Queue)
               </option>
-              <option value="ธีระพล เอกประเสริฐ (IT Specialist & Support Lead)">
-                ธีระพล เอกประเสริฐ (IT Specialist & Support Lead)
-              </option>
+              {itTeamMembers.map(member => (
+                <option key={member.id} value={`${member.name} (${member.position})`}>
+                  {member.name} ({member.position})
+                </option>
+              ))}
               <option value="ทีม IT Service Desk & Support (Tier 1)">
                 ทีม IT Service Desk & Support (Tier 1)
               </option>
