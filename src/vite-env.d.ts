@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** 'development' or 'production'; anything but production shows a DEV badge. */
+  /** 'development', 'uat' or 'production'; anything but production shows a badge. */
   readonly VITE_APP_ENV: string;
   /** 'true' to fill an empty project with sample employees and requests. */
   readonly VITE_SEED_SAMPLE_DATA: string;

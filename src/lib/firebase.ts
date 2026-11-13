@@ -30,9 +30,11 @@ export const auth = getAuth(firebaseApp);
 // Optional fields are left undefined throughout the app; Firestore would reject them otherwise
 export const db = initializeFirestore(firebaseApp, { ignoreUndefinedProperties: true });
 
-/** 'production' on the live site; anything else is a development copy. */
+/** 'development', 'uat' or 'production'. Anything but production shows an environment badge. */
 export const APP_ENV = env.VITE_APP_ENV || 'development';
 export const IS_PRODUCTION = APP_ENV === 'production';
+/** Short badge text, e.g. DEV or UAT. */
+export const ENV_BADGE = APP_ENV === 'development' ? 'DEV' : APP_ENV.toUpperCase();
 export const FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 
 /** Whether an empty project is filled with sample employees and requests (development only). */

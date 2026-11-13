@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from './AuthGate';
-import { FIREBASE_PROJECT_ID, IS_PRODUCTION } from '../lib/firebase';
+import { ENV_BADGE, FIREBASE_PROJECT_ID, IS_PRODUCTION } from '../lib/firebase';
 import { DepartmentId } from '../types';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { DEPT_ICONS } from '../utils/departmentIcons';
@@ -198,10 +198,12 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
           </button>
           {!IS_PRODUCTION && (
             <span
-              title={`ระบบทดสอบ — ข้อมูลจาก Firebase project ${FIREBASE_PROJECT_ID}`}
-              className="text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded bg-amber-400 text-amber-950"
+              title={`ระบบทดสอบ (${ENV_BADGE}) — ข้อมูลจาก Firebase project ${FIREBASE_PROJECT_ID}`}
+              className={`text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded ${
+                ENV_BADGE === 'DEV' ? 'bg-amber-400 text-amber-950' : 'bg-sky-500 text-white'
+              }`}
             >
-              DEV
+              {ENV_BADGE}
             </span>
           )}
         </div>
