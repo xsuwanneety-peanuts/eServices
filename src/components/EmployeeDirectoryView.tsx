@@ -2,10 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DepartmentId, UserPersona } from '../types';
 import { ROLE_LABELS, wouldCreateCycle } from '../utils/approvers';
+import { ADMIN_EMAILS } from '../lib/firebase';
 import { Contact, Pencil, Plus, Search, SearchX, Users, X, AlertTriangle } from 'lucide-react';
 
 type Role = UserPersona['role'];
-const ROLES: Role[] = ['employee', 'approver', 'manager', 'director', 'admin'];
+const ROLES: Role[] = ['employee', 'approver', 'manager', 'director'];
+const isAdminAccount = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
 
 const ROLE_BADGE: Record<Role, string> = {
   employee: 'bg-slate-100 text-slate-600',
@@ -157,6 +159,14 @@ export const EmployeeDirectoryView: React.FC = () => {
                       >
                         {ROLE_LABELS[employee.role]}
                       </span>
+                      {isAdminAccount(employee.email) && (
+                        <span
+                          title="บัญชีนี้เข้าเมนูการจัดการระบบได้"
+                          className="inline-block mt-1 ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-white"
+                        >
+                          ผู้ดูแลระบบ
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-3 text-slate-700">
                       {dept?.nameEn}
@@ -238,7 +248,8 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
   const [email, setEmail] = useState(employee?.email ?? '');
   const [position, setPosition] = useState(employee?.position ?? '');
   const [departmentId, setDepartmentId] = useState<DepartmentId>(employee?.departmentId ?? 'it');
-  const [role, setRole] = useState<Role>(employee?.role ?? 'employee');
+  // The retired 'admin' role is the same as 'director' (ผู้บริหาร)
+  const [role, setRole] = useState<Role>(employee?.role === 'admin' ? 'director' : employee?.role ?? 'employee');
   const [reportsToId, setReportsToId] = useState(employee?.reportsToId ?? '');
   const [error, setError] = useState('');
 
@@ -369,7 +380,8 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
               ))}
             </select>
             <p className="mt-1 text-[11px] text-slate-400">
-              ผู้อำนวยการและผู้ดูแลระบบเห็นคำร้องทั้งหมดและอนุมัติแทนได้ทุกขั้นตอน
+              ผู้บริหารเห็นคำร้องทั้งหมดและอนุมัติแทนได้ทุกขั้นตอน ส่วนสิทธิ์เข้าเมนูการจัดการระบบ (ผู้ดูแลระบบ)
+              กำหนดจากบัญชีเข้าสู่ระบบ ไม่ได้มาจากบทบาทนี้
             </p>
           </div>
           <div>

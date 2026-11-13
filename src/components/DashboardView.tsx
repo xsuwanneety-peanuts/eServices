@@ -37,6 +37,10 @@ export const DashboardView: React.FC = () => {
   const pendingCount = scopedRequests.filter(r => r.status === 'in_review' || r.status === 'pending').length;
   const approvedCount = scopedRequests.filter(r => r.status === 'approved').length;
   const listTitle = isSystemAdmin ? 'คำร้องทั้งหมดในระบบ' : 'คำร้องของฉัน';
+  const percentOf = (count: number) =>
+    scopedRequests.length > 0 ? Math.round((count / scopedRequests.length) * 100) : 0;
+  const pendingPercent = percentOf(pendingCount);
+  const approvedPercent = percentOf(approvedCount);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
@@ -92,7 +96,7 @@ export const DashboardView: React.FC = () => {
             ยินดีต้อนรับคุณ <strong className="text-slate-800 font-semibold">{currentUser.name}</strong> ({currentUser.position} • {currentUser.departmentName})
           </p>
           <p className="text-[11px] text-slate-400 mt-0.5">
-            ระบบติดตามสถานะคำร้องแบบ Real-time และการส่งต่อการอนุมัติอัตโนมัติ (100% Traceability)
+            ติดตามสถานะคำร้องและการส่งต่อการอนุมัติ
           </p>
         </div>
 
@@ -125,7 +129,7 @@ export const DashboardView: React.FC = () => {
                 />
                 <path
                   className="text-amber-500"
-                  strokeDasharray="25, 100"
+                  strokeDasharray={`${pendingPercent}, 100`}
                   strokeWidth="3.5"
                   strokeLinecap="round"
                   stroke="currentColor"
@@ -134,7 +138,7 @@ export const DashboardView: React.FC = () => {
                 />
               </svg>
               <span className="absolute text-[10px] font-bold text-amber-600">
-                {scopedRequests.length > 0 ? Math.round((pendingCount / scopedRequests.length) * 100) : 0}%
+                {pendingPercent}%
               </span>
             </div>
           </div>
@@ -166,7 +170,7 @@ export const DashboardView: React.FC = () => {
                 />
                 <path
                   className="text-red-600"
-                  strokeDasharray="75, 100"
+                  strokeDasharray={`${approvedPercent}, 100`}
                   strokeWidth="3.5"
                   strokeLinecap="round"
                   stroke="currentColor"
@@ -175,7 +179,7 @@ export const DashboardView: React.FC = () => {
                 />
               </svg>
               <span className="absolute text-[10px] font-bold text-red-600">
-                {scopedRequests.length > 0 ? Math.round((approvedCount / scopedRequests.length) * 100) : 0}%
+                {approvedPercent}%
               </span>
             </div>
           </div>
@@ -203,7 +207,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* Approver queue: requests whose current step is waiting on this user */}
-      {canApprove && (
+      {(canApprove || approvalQueue.length > 0) && (
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-red-200 shadow-xs space-y-3">
           <div className="flex items-center space-x-2">
             <ShieldCheck className="w-4 h-4 text-red-600" />
@@ -246,7 +250,7 @@ export const DashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* Main Section: Requests List with Full Traceability */}
+      {/* Main Section: Requests List */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
         {/* Controls Bar: Filters & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">

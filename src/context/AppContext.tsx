@@ -162,7 +162,7 @@ interface AppContextType {
   moveWorkflowStep: (stepId: string, direction: 'up' | 'down') => void;
   saveWorkflowChanges: () => void;
 
-  // Requests & 100% Traceability
+  // Requests
   requests: DocumentRequest[];
   createNewRequest: (newReq: Partial<DocumentRequest>) => DocumentRequest;
   approveRequest: (requestId: string, comment?: string) => void;
@@ -170,7 +170,7 @@ interface AppContextType {
   activeRequest: DocumentRequest | null;
   setActiveRequestId: (id: string | null) => void;
 
-  // Action-Driven Notification
+  // Approval notifications
   emailNotifications: ActionEmailNotification[];
   selectedNotification: ActionEmailNotification | null;
   setSelectedNotificationId: (id: string | null) => void;
@@ -254,7 +254,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           departmentId: 'it',
           departmentName: 'Information Technology (เทคโนโลยีสารสนเทศ)',
           position: 'ผู้ดูแลระบบ',
-          role: 'admin',
+          role: 'director',
           avatar: initialsAvatar(signedInEmail),
         }
       : NO_USER);
@@ -644,9 +644,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'in_review',
       amount: newReq.amount,
       urgency: newReq.urgency || 'medium',
-      impact: newReq.impact || 'department',
-      priority: newReq.priority || 'P3',
-      assignedTo: newReq.assignedTo || 'ยังไม่มอบหมาย (ส่งเข้าคิวกลาง)',
+      // Impact, priority (P1-P4) and assignee are IT service-desk fields; other forms leave them empty
+      impact: newReq.impact,
+      priority: newReq.priority,
+      assignedTo: newReq.assignedTo,
       details: newReq.details || '',
       attachments: newReq.attachments || [],
       formId: newReq.formId,
@@ -658,7 +659,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setRequests(prev => [doc, ...prev]);
 
-    // Create action email notification for the next approver (Core Concept 3)
+    // Notify the next approver
     const nextStepConfig = matchedWf.steps[1];
     const nextApprover = auditSteps[1];
     if (nextStepConfig && nextStepConfig.sendEmailNotification && nextApprover?.approverEmail) {
@@ -678,7 +679,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setEmailNotifications(prev => [emailNotif, ...prev]);
     }
 
-    showToast(`สร้างคำร้อง ${doc.code} สำเร็จ! เอกสารส่งอีเมลแจ้งผู้อนุมัติลำดับถัดไปทันที`, 'success');
+    showToast(`สร้างคำร้อง ${doc.code} สำเร็จ — แจ้งเตือนผู้อนุมัติลำดับถัดไปในระบบแล้ว`, 'success');
     return doc;
   };
 
@@ -807,7 +808,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`ส่งคืน/ตีกลับเอกสารถึงผู้ยื่นคำร้องพร้อมระบุเหตุผลแล้ว`, 'warning');
   };
 
-  // Execute Action directly from Action-Driven Email (Core Concept 3)
+  // Approve or return straight from the approval email preview
   const executeEmailAction = (notificationId: string, action: 'approved' | 'rejected', comment?: string) => {
     const notif = emailNotifications.find(n => n.id === notificationId);
     if (!notif) return;
@@ -845,8 +846,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isSystemAdmin) return true;
     if (request.requestorId === currentUser.id) return true;
     if (request.steps.some(step => step.status !== 'waiting' && isMine(step.approverEmail))) return true;
-    // Staff of the servicing department see its requests
-    return canApprove && request.departmentId === currentUser.departmentId;
+    // Members of the department that handles the request see it, whatever their role
+    return request.departmentId === currentUser.departmentId;
   };
 
   const myRequests = requests.filter(r => r.requestorId === currentUser.id);

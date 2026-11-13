@@ -77,10 +77,10 @@ export const EmailSimulatorModal: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold tracking-tight">Action-Driven Email Simulator</h3>
+                <h3 className="text-base font-bold tracking-tight">อีเมลขออนุมัติ</h3>
               </div>
               <p className="text-xs text-red-100">
-                "เอกสารวิ่งหาคน ไม่ใช่คนเดินตามเอกสาร" — ผู้อนุมัติสามารถกดอนุมัติหรือตีกลับได้ทันทีจากอีเมล
+                ตัวอย่างอีเมลที่ระบบจะส่งถึงผู้อนุมัติ — ตอนนี้ยังไม่ได้ส่งออกนอกระบบ กดอนุมัติหรือตีกลับได้จากที่นี่
               </p>
             </div>
           </div>
@@ -100,7 +100,7 @@ export const EmailSimulatorModal: React.FC = () => {
             <div className="p-3 border-b border-slate-200 bg-white">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Inbox className="w-3.5 h-3.5 text-red-600" />
-                กล่องข้อความผู้มีอำนาจอนุมัติ ({emailNotifications.length})
+                อีเมลขออนุมัติถึงคุณ ({emailNotifications.length})
               </span>
             </div>
 
@@ -248,12 +248,12 @@ export const EmailSimulatorModal: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Action-Driven Buttons (Crucial Core Concept 3 Feature) */}
+                  {/* Approve / return buttons */}
                   <div className="pt-4 border-t border-slate-200">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
                         <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        ปุ่มดำเนินการด่วนในอีเมล (1-Click Action Buttons):
+                        ดำเนินการ:
                       </span>
                       <button
                         onClick={() => {
@@ -262,7 +262,7 @@ export const EmailSimulatorModal: React.FC = () => {
                         }}
                         className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
                       >
-                        ดูประวัติ 100% Traceability →
+                        ดูรายละเอียดคำร้อง →
                       </button>
                     </div>
 
@@ -273,7 +273,7 @@ export const EmailSimulatorModal: React.FC = () => {
                           คุณได้ทำการ {currentEmail.actionTaken === 'approved' ? 'อนุมัติ' : 'ตีกลับ'} คำร้องนี้แล้ว
                         </p>
                         <p className="text-[11px] text-emerald-600 mt-0.5">
-                          ระบบได้ประทับตราดิจิทัลและส่งต่อให้ขั้นตอนถัดไปในสายการอนุมัติเรียบร้อย
+                          ระบบบันทึกการตัดสินใจและส่งต่อให้ขั้นตอนถัดไปแล้ว
                         </p>
                       </div>
                     ) : showRejectInput ? (
@@ -330,7 +330,7 @@ export const EmailSimulatorModal: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
                 <Mail className="w-10 h-10 mb-2 opacity-50" />
-                <p>เลือกอีเมลจากรายการด้านซ้ายเพื่อทดสอบการตอบรับอนุมัติ</p>
+                <p>เลือกอีเมลจากรายการด้านซ้าย</p>
               </div>
             )}
           </div>
@@ -340,7 +340,7 @@ export const EmailSimulatorModal: React.FC = () => {
         <div className="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <span className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            การอนุมัติผ่านอีเมลได้รับการปกป้องด้วยรหัสผ่านความปลอดภัยแบบ Zero-Trust
+            ต้องเข้าสู่ระบบด้วยบัญชีของผู้อนุมัติจึงจะดำเนินการได้
           </span>
           <button
             onClick={() => setIsEmailSimulatorModalOpen(false)}

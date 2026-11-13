@@ -1,4 +1,5 @@
-import { DocumentRequest } from '../types';
+import { DepartmentId, DocumentRequest } from '../types';
+import { CORPORATE_DEPARTMENTS } from '../data/mockData';
 
 export const EMAIL_SENDER_NAME = 'ระบบเดินเอกสาร e-Service';
 
@@ -19,8 +20,11 @@ export const renderStepEmail = (
   stepTitle: string,
   /** Approver's name from the Employee Directory; omitted when no approver is set up yet. */
   approverName: string | undefined,
-  request?: DocumentRequest | null
+  request?: DocumentRequest | null,
+  /** Department that owns the form; defaults to the request's department. */
+  departmentId?: DepartmentId
 ): { subject: string; body: string } => {
+  const ownerDept = CORPORATE_DEPARTMENTS.find(d => d.id === (departmentId ?? request?.departmentId));
   const code = request?.code ?? SAMPLE_REQUEST.code;
   const title = request?.title ?? SAMPLE_REQUEST.title;
   const requestorName = request?.requestorName ?? SAMPLE_REQUEST.requestorName;
@@ -33,7 +37,7 @@ export const renderStepEmail = (
       '',
       `มีคำร้อง ${code} "${title}" จากคุณ ${requestorName} (${requestorDepartment}) รอการพิจารณาของท่านในขั้นตอน "${stepTitle}"`,
       '',
-      'หากมีข้อสงสัยหรือไม่สามารถดำเนินการได้กรุณาติดต่อฝ่าย เทคโนโลยีสารสนเทศ',
+      `หากมีข้อสงสัยหรือไม่สามารถดำเนินการได้กรุณาติดต่อฝ่าย ${ownerDept?.nameEn ?? 'Information Technology'}`,
       'ขอบคุณค่ะ',
     ].join('\n'),
   };

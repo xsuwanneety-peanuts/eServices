@@ -7,12 +7,15 @@ export const APPROVER_TYPE_LABELS: Record<StepApproverType, string> = {
   employee: 'พนักงานที่ระบุ',
 };
 
+// "ผู้บริหาร" sees every request and may approve any step. It is not the same as being a
+// system admin (opening system settings), which comes from the sign-in account (ADMIN_EMAILS).
+// The old 'admin' role means the same as 'director' and is no longer offered.
 export const ROLE_LABELS: Record<UserPersona['role'], string> = {
   employee: 'พนักงาน',
   approver: 'ผู้อนุมัติ',
   manager: 'ผู้จัดการ',
-  director: 'ผู้อำนวยการ',
-  admin: 'ผู้ดูแลระบบ',
+  director: 'ผู้บริหาร',
+  admin: 'ผู้บริหาร',
 };
 
 const findEmployee = (employees: UserPersona[], id?: string) =>
