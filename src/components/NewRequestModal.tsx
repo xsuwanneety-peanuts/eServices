@@ -39,11 +39,11 @@ export const NewRequestModal: React.FC = () => {
     createNewRequest,
     currentUser,
     setActiveRequestId,
-    availablePersonas,
+    employees,
   } = useApp();
 
   // IT team members who can be assigned as the person responsible
-  const itTeamMembers = availablePersonas.filter(p => p.departmentId === 'it');
+  const itTeamMembers = employees.filter(p => p.departmentId === 'it');
 
   // 5 IT categories as requested
   const itCategories: {

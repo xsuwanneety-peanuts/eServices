@@ -25,6 +25,8 @@ export const DashboardView: React.FC = () => {
     canApprove,
     myRequests,
     approvalQueue,
+    isLinkedAccount,
+    setActiveTab,
   } = useApp();
 
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
@@ -61,6 +63,23 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="space-y-5">
+      {/* Admin signed in with an account that is not in the directory yet */}
+      {!isLinkedAccount && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p>
+            บัญชี <span className="font-mono">{currentUser.email}</span> ยังไม่มีใน Employee Directory
+            ตอนนี้ใช้งานในฐานะผู้ดูแลระบบชั่วคราว
+          </p>
+          <button
+            type="button"
+            onClick={() => setActiveTab('employee_directory')}
+            className="text-xs font-bold text-amber-900 underline hover:no-underline cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            เพิ่มพนักงานใน Employee Directory
+          </button>
+        </div>
+      )}
+
       {/* Top Header / Welcome Banner */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

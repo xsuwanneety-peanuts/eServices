@@ -8,9 +8,7 @@ import {
   Bell,
   ChevronDown,
   ChevronRight,
-  CheckCircle2,
   Clock,
-  Sparkles,
   Menu,
   X,
   Home,
@@ -35,7 +33,7 @@ const ADMIN_GROUP_LABEL = 'การจัดการระบบ';
 const HOME_LABEL = 'เมนูของฉัน';
 const KB_LABEL = 'Knowledge Base';
 
-type OpenMenu = 'dept' | 'admin' | 'notif' | 'persona' | 'mobile' | null;
+type OpenMenu = 'dept' | 'admin' | 'notif' | 'profile' | 'mobile' | null;
 
 interface NavbarProps {
   /** True once the main content has been scrolled, used to show the navbar shadow. */
@@ -45,8 +43,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   const {
     currentUser,
-    setCurrentUser,
-    availablePersonas,
+    isLinkedAccount,
     setIsEmailSimulatorModalOpen,
     setActiveRequestId,
     canAccessTab,
@@ -376,12 +373,12 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             )}
           </div>
 
-          {/* User Profile Avatar with Persona Switcher */}
+          {/* Profile: the signed-in employee and sign-out */}
           <div className="relative">
             <button
-              onClick={() => toggleMenu('persona')}
-              aria-expanded={openMenu === 'persona'}
-              title="สลับบทบาทผู้ใช้ตามโครงสร้างองค์กร"
+              onClick={() => toggleMenu('profile')}
+              aria-expanded={openMenu === 'profile'}
+              title={currentUser.name}
               className="flex items-center gap-1.5 p-0.5 rounded-full hover:ring-2 hover:ring-red-400 transition-all focus:outline-hidden cursor-pointer"
             >
               <img
@@ -392,61 +389,38 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
               <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:block" />
             </button>
 
-            {openMenu === 'persona' && (
-              <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
-                <div className="px-3.5 py-2 border-b border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-red-700">
-                      สลับบทบาทพนักงาน (Role-Based Access)
-                    </span>
-                    <Sparkles className="w-3.5 h-3.5 text-red-500" />
+            {openMenu === 'profile' && (
+              <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
+                <div className="px-4 py-3 flex items-center gap-3">
+                  <img
+                    src={currentUser.avatar}
+                    alt=""
+                    className="w-11 h-11 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
+                  />
+                  <div className="min-w-0 text-xs">
+                    <p className="text-sm font-bold text-slate-900 truncate">{currentUser.name}</p>
+                    <p className="text-slate-600 truncate">{currentUser.position}</p>
+                    <p className="text-red-700 font-medium truncate">{currentUser.departmentName}</p>
+                    <p className="text-slate-400 font-mono text-[11px] truncate">{user.email}</p>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    เลือกหน่วยงานในองค์กรเพื่อทดสอบมุมมอง Personalized Workspace
+                </div>
+
+                {isAdminLogin && (
+                  <p className="mx-4 mb-2 text-[11px] font-semibold text-red-700 bg-red-50 border border-red-100 rounded-lg px-2 py-1">
+                    ผู้ดูแลระบบ — เข้าเมนูการจัดการระบบได้
                   </p>
-                </div>
-
-                <div className="py-1 max-h-80 overflow-y-auto">
-                  {availablePersonas.map(persona => {
-                    const isCurrent = persona.id === currentUser.id;
-                    return (
-                      <button
-                        key={persona.id}
-                        onClick={() => {
-                          setCurrentUser(persona);
-                          setOpenMenu(null);
-                        }}
-                        className={`w-full px-3.5 py-2.5 text-left flex items-center gap-3 transition-colors cursor-pointer ${
-                          isCurrent ? 'bg-red-50/80 border-l-4 border-red-600' : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <img
-                          src={persona.avatar}
-                          alt={persona.name}
-                          className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0 text-xs">
-                          <div className="flex items-center justify-between">
-                            <p className="font-bold text-slate-800 truncate">{persona.name}</p>
-                            {isCurrent && <CheckCircle2 className="w-3.5 h-3.5 text-red-600 shrink-0" />}
-                          </div>
-                          <p className="text-[11px] text-red-700 font-medium truncate">{persona.departmentName}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{persona.position}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Which account this device is signed in with, and sign out */}
-                <div className="px-3.5 pt-2 mt-1 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-slate-400 truncate">
-                    {isAdminLogin ? `ผู้ดูแลระบบ: ${user.email}` : `เข้าสู่ระบบ: ${user.email}`}
-                  </span>
+                )}
+                {!isLinkedAccount && (
+                  <p className="mx-4 mb-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                    บัญชีนี้ยังไม่มีข้อมูลพนักงาน — เพิ่มอีเมลนี้ใน Employee Directory
+                  </p>
+                )}
+                {/* Sign out */}
+                <div className="px-4 pt-1.5 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={signOutUser}
-                    className="inline-flex items-center gap-1 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-red-700 cursor-pointer shrink-0"
+                    className="w-full inline-flex items-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-red-700 cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     ออกจากระบบ
