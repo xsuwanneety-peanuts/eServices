@@ -28,7 +28,14 @@ export const RequestDetailModal: React.FC = () => {
     currentUser,
     setIsPrintModalOpen,
     canActOnRequest,
+    resubmitRequest,
   } = useApp();
+
+  // Fixing a returned request
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDetails, setEditDetails] = useState('');
+  const [editNote, setEditNote] = useState('');
 
   const [approveComment, setApproveComment] = useState('เห็นชอบอนุมัติ');
   const [rejectReason, setRejectReason] = useState('');
@@ -42,6 +49,29 @@ export const RequestDetailModal: React.FC = () => {
   const isReturned = activeRequest.status === 'returned';
   // Only the person responsible for the current step may approve or return it
   const canDecide = canActOnRequest(activeRequest);
+  // The requester can fix a returned request and send it again
+  const canResubmit = isReturned && activeRequest.requestorId === currentUser.id;
+  const returnedStep = activeRequest.steps.find(s => s.status === 'rejected');
+
+  const startEditing = () => {
+    setEditTitle(activeRequest.title);
+    setEditDetails(activeRequest.details);
+    setEditNote('');
+    setIsEditing(true);
+  };
+
+  const handleResubmit = () => {
+    if (!editTitle.trim()) {
+      alert('กรุณากรอกหัวเรื่อง');
+      return;
+    }
+    resubmitRequest(activeRequest.id, {
+      title: editTitle.trim(),
+      details: editDetails.trim(),
+      note: editNote.trim(),
+    });
+    setIsEditing(false);
+  };
 
   const handleApprove = () => {
     approveRequest(activeRequest.id, approveComment);
@@ -366,6 +396,85 @@ export const RequestDetailModal: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Returned to the requester: fix and send again */}
+        {canResubmit && (
+          <div className="p-4 rounded-xl border-2 border-rose-200 bg-rose-50/40 space-y-3 text-xs">
+            <div>
+              <p className="font-bold text-rose-900">คำร้องนี้ถูกตีกลับ</p>
+              {returnedStep && (
+                <p className="text-rose-800 mt-0.5">
+                  ขั้น "{returnedStep.stepTitle}" โดย {returnedStep.approverName}:{' '}
+                  {(returnedStep.comment ?? '').replace(/^ตีกลับ: /, '') || 'ไม่ได้ระบุเหตุผล'}
+                </p>
+              )}
+            </div>
+
+            {isEditing ? (
+              <div className="space-y-2.5">
+                <div>
+                  <label htmlFor="rs-title" className="block font-semibold text-slate-700 mb-1">
+                    หัวเรื่อง
+                  </label>
+                  <input
+                    id="rs-title"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="rs-details" className="block font-semibold text-slate-700 mb-1">
+                    รายละเอียด
+                  </label>
+                  <textarea
+                    id="rs-details"
+                    rows={4}
+                    value={editDetails}
+                    onChange={e => setEditDetails(e.target.value)}
+                    className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="rs-note" className="block font-semibold text-slate-700 mb-1">
+                    แก้ไขอะไรไป (ไม่บังคับ)
+                  </label>
+                  <input
+                    id="rs-note"
+                    value={editNote}
+                    onChange={e => setEditNote(e.target.value)}
+                    placeholder="เช่น แนบใบเสนอราคาเพิ่มแล้ว"
+                    className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResubmit}
+                    className="px-3 py-1.5 rounded-lg font-bold bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                  >
+                    ส่งใหม่
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={startEditing}
+                className="px-4 py-2 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+              >
+                แก้ไขแล้วส่งใหม่
+              </button>
+            )}
+          </div>
+        )}
         </div>
 
         {/* Modal Footer */}
