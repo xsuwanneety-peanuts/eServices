@@ -87,11 +87,11 @@ export const WorkflowBuilderView: React.FC = () => {
         </div>
 
         {/* Workflow Selector & Save */}
-        <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center w-full md:w-auto shrink-0">
           <select
             value={selectedWorkflowId}
             onChange={e => setSelectedWorkflowId(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:border-red-500 shadow-xs"
+            className="w-full md:w-auto px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:border-red-500 shadow-xs"
           >
             {workflows.map(wf => (
               <option key={wf.id} value={wf.id}>

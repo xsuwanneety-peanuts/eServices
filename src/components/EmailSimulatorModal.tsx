@@ -96,7 +96,7 @@ export const EmailSimulatorModal: React.FC = () => {
         {/* Content Body: Sidebar of emails + Email preview */}
         <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[460px]">
           {/* Email List Column (4 cols) */}
-          <div className="md:col-span-4 border-r border-slate-200 bg-slate-50/50 flex flex-col">
+          <div className="md:col-span-4 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/50 flex flex-col">
             <div className="p-3 border-b border-slate-200 bg-white">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Inbox className="w-3.5 h-3.5 text-red-600" />
@@ -104,7 +104,7 @@ export const EmailSimulatorModal: React.FC = () => {
               </span>
             </div>
 
-            <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+            <div className="divide-y divide-slate-100 overflow-y-auto flex-1 max-h-44 md:max-h-none">
               {emailNotifications.map(email => {
                 const isSelected = currentEmail?.id === email.id;
                 return (
@@ -344,7 +344,7 @@ export const EmailSimulatorModal: React.FC = () => {
           </span>
           <button
             onClick={() => setIsEmailSimulatorModalOpen(false)}
-            className="px-3.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer"
+            className="px-3.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer whitespace-nowrap shrink-0"
           >
             ปิดหน้าต่าง
           </button>

@@ -68,7 +68,7 @@ export const EmployeeDirectoryView: React.FC = () => {
         <button
           type="button"
           onClick={() => setEditing(null)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer self-start md:self-auto"
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer whitespace-nowrap self-start md:self-auto"
         >
           <Plus className="w-4 h-4" />
           เพิ่มพนักงาน
@@ -116,7 +116,7 @@ export const EmployeeDirectoryView: React.FC = () => {
 
       {/* Directory table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full text-left text-xs min-w-[880px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -214,6 +214,78 @@ export const EmployeeDirectoryView: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Below desktop width: one card per employee, with Report to and edit in view */}
+        <div className="lg:hidden divide-y divide-slate-100">
+          {filtered.map(employee => {
+            const dept = departments.find(d => d.id === employee.departmentId);
+            const directReports = employees.filter(e => e.reportsToId === employee.id).length;
+            const managerOptions = employees.filter(
+              e => e.id !== employee.id && !wouldCreateCycle(employee.id, e.id, employees)
+            );
+            return (
+              <div key={employee.id} className="p-4 space-y-3 text-xs">
+                <div className="flex items-start gap-3">
+                  <img
+                    src={employee.avatar}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900 text-sm truncate">{employee.name}</p>
+                    <p className="text-slate-400 font-mono text-[11px] truncate">{employee.email}</p>
+                    <p className="text-slate-700 mt-1">{employee.position}</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ROLE_BADGE[employee.role]}`}>
+                        {ROLE_LABELS[employee.role]}
+                      </span>
+                      {isAdminAccount(employee.email) && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-white">
+                          ผู้ดูแลระบบ
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      {dept?.nameEn}
+                      {directReports > 0 && ` • ลูกทีม ${directReports} คน`}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(employee)}
+                    title={`แก้ไขข้อมูล ${employee.name}`}
+                    className="p-2 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 cursor-pointer shrink-0"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
+                <div>
+                  <label
+                    htmlFor={`reports-to-${employee.id}`}
+                    className="block text-[11px] font-semibold text-slate-500 mb-1"
+                  >
+                    Report to
+                  </label>
+                  <select
+                    id={`reports-to-${employee.id}`}
+                    value={employee.reportsToId ?? ''}
+                    onChange={e => setReportsTo(employee, e.target.value)}
+                    className={`w-full px-2.5 py-2 border rounded-lg bg-white text-slate-800 focus:outline-hidden focus:border-red-500 ${
+                      employee.reportsToId ? 'border-slate-300' : 'border-amber-300 bg-amber-50/50'
+                    }`}
+                  >
+                    <option value="">— ยังไม่ได้ตั้ง —</option>
+                    {managerOptions.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — {m.position}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {filtered.length === 0 && (

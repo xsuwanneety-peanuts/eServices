@@ -73,7 +73,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
     <button
       type="button"
       onClick={() => setBuilderForm(null)}
-      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer"
+      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer whitespace-nowrap self-start sm:self-auto"
     >
       <Plus className="w-4 h-4" />
       สร้างแบบฟอร์มใหม่
@@ -104,7 +104,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {/* Forms Section: only the forms this department provides */}
       {deptForms.length > 0 ? (
         <div>
-          <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มฝ่าย {deptInfo.nameEn}</h3>
               <p className="text-xs text-slate-500">
@@ -233,11 +233,11 @@ export const DepartmentWorkspaceView: React.FC = () => {
               <div
                 key={req.id}
                 onClick={() => setActiveRequestId(req.id)}
-                className="p-4 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-colors"
+                className="p-4 hover:bg-slate-50 cursor-pointer flex items-start sm:items-center justify-between gap-3 transition-colors"
               >
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold font-mono text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-xs font-bold font-mono text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 whitespace-nowrap">
                       {req.code}
                     </span>
                     {req.priority && (
@@ -245,16 +245,16 @@ export const DepartmentWorkspaceView: React.FC = () => {
                         {req.priority}
                       </span>
                     )}
-                    <span className="text-xs font-bold text-slate-800">{req.title}</span>
+                    <span className="basis-full sm:basis-auto text-xs font-bold text-slate-800">{req.title}</span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
                     ผู้ยื่น: {req.requestorName} • วันที่: {req.createdAt}
                   </p>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <span
-                    className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                    className={`text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
                       req.status === 'approved'
                         ? 'bg-emerald-100 text-emerald-800'
                         : req.status === 'returned' || req.status === 'rejected'
