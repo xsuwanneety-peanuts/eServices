@@ -5,4 +5,6 @@ coverage/
 .DS_Store
 *.log
 .env*
-!.env.example
+# Firebase web config is not secret; these two are committed so CI can build each environment
+!.env.development
+!.env.production

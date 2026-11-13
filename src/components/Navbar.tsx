@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from './AuthGate';
+import { ENV_BADGE, FIREBASE_PROJECT_ID, IS_PRODUCTION } from '../lib/firebase';
 import { DepartmentId } from '../types';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { DEPT_ICONS } from '../utils/departmentIcons';
@@ -15,6 +16,7 @@ import {
   Laptop,
   BookOpen,
   LogOut,
+  Download,
   ShieldCheck,
   GitBranch,
   Contact,
@@ -51,6 +53,12 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
     myStatusUpdates,
     unseenStatusUpdateCount,
     markStatusUpdatesSeen,
+    employees,
+    menuPermissions,
+    workflows,
+    requests,
+    emailNotifications,
+    showToast,
     setSelectedNotificationId,
     activeTab,
     setActiveTab,
@@ -62,6 +70,29 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   } = useApp();
 
   const { user, isAdminLogin, signOutUser } = useAuth();
+
+  // Admin backup: everything shared in Firestore, as one JSON file saved by the browser
+  const downloadBackup = () => {
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      exportedBy: user.email,
+      firebaseProject: FIREBASE_PROJECT_ID,
+      employees,
+      menuPermissions,
+      workflows,
+      requests,
+      notifications: emailNotifications,
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `eservice-backup-${FIREBASE_PROJECT_ID}-${stamp}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setOpenMenu(null);
+    showToast(`ดาวน์โหลดสำรองข้อมูลแล้ว (พนักงาน ${employees.length} คน, คำร้อง ${requests.length} รายการ)`, 'success');
+  };
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [mobileSection, setMobileSection] = useState<'dept' | 'admin' | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -165,6 +196,16 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
               e-Service
             </span>
           </button>
+          {!IS_PRODUCTION && (
+            <span
+              title={`ระบบทดสอบ (${ENV_BADGE}) — ข้อมูลจาก Firebase project ${FIREBASE_PROJECT_ID}`}
+              className={`text-[10px] font-black tracking-wider px-1.5 py-0.5 rounded ${
+                ENV_BADGE === 'DEV' ? 'bg-amber-400 text-amber-950' : 'bg-sky-500 text-white'
+              }`}
+            >
+              {ENV_BADGE}
+            </span>
+          )}
         </div>
 
         {/* Center: Main menu (desktop) */}
@@ -415,6 +456,19 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                     บัญชีนี้ยังไม่มีข้อมูลพนักงาน — เพิ่มอีเมลนี้ใน Employee Directory
                   </p>
                 )}
+                {isAdminLogin && (
+                  <div className="px-4 pt-1.5 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={downloadBackup}
+                      className="w-full inline-flex items-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-red-700 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      ดาวน์โหลดสำรองข้อมูล (JSON)
+                    </button>
+                  </div>
+                )}
+
                 {/* Sign out */}
                 <div className="px-4 pt-1.5 border-t border-slate-100">
                   <button

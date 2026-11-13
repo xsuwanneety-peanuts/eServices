@@ -27,6 +27,7 @@ import { resolveStepApprover } from '../utils/approvers';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
+import { SEED_SAMPLE_DATA } from '../lib/firebase';
 import { CustomFormInput, FORM_CODE_PREFIX } from '../utils/forms';
 
 const ADMIN_TABS = ['access_control', 'workflow_builder', 'employee_directory'];
@@ -289,17 +290,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const dataReady =
     employeesLoaded && permissionsLoaded && workflowsLoaded && requestsLoaded && notificationsLoaded;
 
-  // A brand-new Firebase project starts empty: the first admin sign-in fills it with the
-  // starting data, once (a marker document prevents re-seeding after data is cleaned up)
+  // A brand-new Firebase project starts empty: the first admin sign-in fills it, once (a
+  // marker document prevents re-seeding after data is cleaned up). Development gets sample
+  // employees and requests; production only gets the standard IT forms and their flows.
   useEffect(() => {
     if (!isAdminLogin) return;
-    seedCollectionsOnce({
-      employees: USER_PERSONAS,
-      menuPermissions: INITIAL_MENU_PERMISSIONS,
-      workflows: INITIAL_WORKFLOWS,
-      requests: INITIAL_REQUESTS_RESOLVED,
-      notifications: INITIAL_NOTIFICATIONS,
-    }).catch(handleWriteError);
+    seedCollectionsOnce(
+      SEED_SAMPLE_DATA
+        ? {
+            employees: USER_PERSONAS,
+            menuPermissions: INITIAL_MENU_PERMISSIONS,
+            workflows: INITIAL_WORKFLOWS,
+            requests: INITIAL_REQUESTS_RESOLVED,
+            notifications: INITIAL_NOTIFICATIONS,
+          }
+        : {
+            menuPermissions: INITIAL_MENU_PERMISSIONS,
+            workflows: INITIAL_WORKFLOWS,
+          }
+    ).catch(handleWriteError);
   }, [isAdminLogin]);
 
   // ---- Employee Directory ----
