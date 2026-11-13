@@ -27,6 +27,7 @@ import { resolveStepApprover } from '../utils/approvers';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
+import { CustomFormInput, FORM_CODE_PREFIX } from '../utils/forms';
 
 const ADMIN_TABS = ['access_control', 'workflow_builder', 'employee_directory'];
 
@@ -140,6 +141,13 @@ interface AppContextType {
   togglePermission: (menuId: string, deptId: DepartmentId) => void;
   /** Open a form to every department (true) or close it to all of them (false). */
   setFormAccessForAll: (menuId: string, allowed: boolean) => void;
+  /** Whether the signed-in user may build forms for this department (its members, and admins). */
+  canManageForms: (deptId: DepartmentId) => boolean;
+  /** Whether the signed-in user may edit or delete this department-built form. */
+  canEditForm: (form: MenuItemPermission) => boolean;
+  /** Create (no existingId) or update a department-built form and its approval workflow. */
+  saveCustomForm: (deptId: DepartmentId, input: CustomFormInput, existingId?: string) => void;
+  deleteCustomForm: (formId: string) => void;
   resetPermissions: () => void;
   isMenuPermittedForUser: (menuCode: string) => boolean;
 
@@ -374,6 +382,94 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('ปรับปรุงสิทธิ์การเข้าถึงเรียบร้อยแล้ว', 'info');
   };
 
+  // ---- Department-built forms ----
+  const canManageForms = (deptId: DepartmentId) =>
+    isAdminLogin || (isLinkedAccount && currentUser.departmentId === deptId);
+
+  const canEditForm = (form: MenuItemPermission) =>
+    !!form.fields && (isAdminLogin || form.createdBy?.toLowerCase() === signedInEmail);
+
+  const saveCustomForm = (deptId: DepartmentId, input: CustomFormInput, existingId?: string) => {
+    const existing = existingId ? menuPermissions.find(f => f.id === existingId) : undefined;
+    const formId = existing?.id ?? `form-${deptId}-${Date.now().toString(36)}`;
+    const workflowId = existing?.workflowId ?? `wf-${formId}`;
+    const createdBy = existing?.createdBy ?? signedInEmail;
+
+    // Next free code for this department, e.g. HR-FORM-01
+    let menuCode = existing?.menuCode;
+    if (!menuCode) {
+      const prefix = FORM_CODE_PREFIX[deptId];
+      let n = menuPermissions.filter(f => f.ownerDepartmentId === deptId).length + 1;
+      while (menuPermissions.some(f => f.menuCode === `${prefix}-FORM-${String(n).padStart(2, '0')}`)) n++;
+      menuCode = `${prefix}-FORM-${String(n).padStart(2, '0')}`;
+    }
+
+    const allowedDepartments =
+      input.audience === 'custom' && existing
+        ? existing.allowedDepartments
+        : (Object.fromEntries(
+            CORPORATE_DEPARTMENTS.map(d => [d.id, input.audience === 'all' || d.id === deptId])
+          ) as Record<DepartmentId, boolean>);
+
+    const form: MenuItemPermission = {
+      id: formId,
+      menuCode,
+      menuName: input.name,
+      category: CORPORATE_DEPARTMENTS.find(d => d.id === deptId)?.nameEn ?? deptId,
+      ownerDepartmentId: deptId,
+      allowedDepartments,
+      description: input.description,
+      fields: input.fields,
+      workflowId,
+      createdBy,
+    };
+
+    const workflow: WorkflowDefinition = {
+      id: workflowId,
+      formId,
+      formTitle: input.name,
+      departmentId: deptId,
+      description: input.description,
+      itilCategory: 'service_request',
+      createdBy,
+      steps: [
+        {
+          id: `${workflowId}-requester`,
+          stepIndex: 0,
+          title: 'ผู้ยื่นคำร้อง',
+          roleName: 'ผู้ยื่นคำขอ',
+          approverType: 'requester',
+          sendEmailNotification: true,
+          slaHours: 0,
+        },
+        ...input.steps.map((step, idx) => ({
+          id: step.id,
+          stepIndex: idx + 1,
+          title: step.title,
+          roleName: step.title,
+          approverType: step.approverType,
+          approverEmployeeId: step.approverType === 'employee' ? step.approverEmployeeId : undefined,
+          sendEmailNotification: true,
+          slaHours: 24,
+        })),
+      ],
+    };
+
+    setMenuPermissions(prev => (existing ? prev.map(f => (f.id === formId ? form : f)) : [...prev, form]));
+    setWorkflows(prev =>
+      prev.some(w => w.id === workflowId) ? prev.map(w => (w.id === workflowId ? workflow : w)) : [...prev, workflow]
+    );
+    showToast(existing ? `บันทึกแบบฟอร์ม "${input.name}" แล้ว` : `สร้างแบบฟอร์ม ${menuCode} "${input.name}" แล้ว`, 'success');
+  };
+
+  const deleteCustomForm = (formId: string) => {
+    const form = menuPermissions.find(f => f.id === formId);
+    if (!form) return;
+    setMenuPermissions(prev => prev.filter(f => f.id !== formId));
+    if (form.workflowId) setWorkflows(prev => prev.filter(w => w.id !== form.workflowId));
+    showToast(`ลบแบบฟอร์ม "${form.menuName}" แล้ว`, 'info');
+  };
+
   const setFormAccessForAll = (menuId: string, allowed: boolean) => {
     setMenuPermissions(prev =>
       prev.map(item =>
@@ -390,9 +486,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(allowed ? 'เปิดสิทธิ์ให้ทุกหน่วยงานแล้ว' : 'ปิดสิทธิ์ทุกหน่วยงานแล้ว', 'info');
   };
 
+  // Puts the standard forms' access back to the defaults. Forms that departments built
+  // themselves have no default, so they are left exactly as they are.
   const resetPermissions = () => {
-    setMenuPermissions(INITIAL_MENU_PERMISSIONS);
-    showToast('รีเซ็ตสิทธิ์การเข้าถึงตามค่ามาตรฐานองค์กรแล้ว', 'info');
+    setMenuPermissions(prev =>
+      prev.map(form => {
+        const standard = INITIAL_MENU_PERMISSIONS.find(f => f.id === form.id);
+        return standard ? { ...form, allowedDepartments: standard.allowedDepartments } : form;
+      })
+    );
+    showToast('รีเซ็ตสิทธิ์ของแบบฟอร์มมาตรฐานแล้ว (แบบฟอร์มที่หน่วยงานสร้างเองไม่เปลี่ยน)', 'info');
   };
 
   // Active workflow
@@ -492,8 +595,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const matchedWf = workflows.find(w => w.id === (newReq.workflowId || 'wf-procure')) || workflows[0];
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const codeNum = Math.floor(1000 + Math.random() * 9000);
-    const requestCode = `REQ-${now.getFullYear()}-${codeNum}`;
+    // Next number in this year's sequence, e.g. REQ-2026-0007
+    const yearPrefix = `REQ-${now.getFullYear()}-`;
+    const lastNumber = requests.reduce((max, r) => {
+      if (!r.code.startsWith(yearPrefix)) return max;
+      const n = Number(r.code.slice(yearPrefix.length));
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
+    const requestCode = `${yearPrefix}${String(lastNumber + 1).padStart(4, '0')}`;
 
     // Generate initial audit entries from workflow steps
     const auditSteps: ApprovalAuditEntry[] = matchedWf.steps.map((s, idx) => {
@@ -540,6 +649,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       assignedTo: newReq.assignedTo || 'ยังไม่มอบหมาย (ส่งเข้าคิวกลาง)',
       details: newReq.details || '',
       attachments: newReq.attachments || [],
+      formId: newReq.formId,
+      answers: newReq.answers,
       workflowId: matchedWf.id,
       currentStepIndex: 1, // Next approver
       steps: auditSteps,
@@ -571,10 +682,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return doc;
   };
 
+  // Mark the approval alerts already sent for this request as handled, so the bell clears
+  // no matter where the decision was made (request window or email preview)
+  const closeOpenNotifications = (requestId: string, action: 'approved' | 'rejected') => {
+    const openIds = emailNotifications.filter(n => n.requestId === requestId && !n.actionTaken).map(n => n.id);
+    if (openIds.length === 0) return;
+    setEmailNotifications(prev =>
+      prev.map(n => (openIds.includes(n.id) ? { ...n, read: true, actionTaken: action } : n))
+    );
+  };
+
   // Approve a request
   const approveRequest = (requestId: string, comment: string = 'เห็นชอบอนุมัติตามระเบียบ') => {
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    // Captured before the next step's alert is added below
+    closeOpenNotifications(requestId, 'approved');
 
     setRequests(prev =>
       prev.map(req => {
@@ -608,8 +732,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const isFinalStep = currentStep >= totalSteps - 1;
         const newStatus = isFinalStep ? ('approved' as const) : ('in_review' as const);
 
-        // Send next email if not final
-        if (!isFinalStep && updatedSteps[currentStep + 1]?.approverEmail) {
+        // Alert the next approver, unless that step has email notification switched off
+        const nextStepConfig = workflows.find(w => w.id === req.workflowId)?.steps[currentStep + 1];
+        const notifyNext = nextStepConfig?.sendEmailNotification ?? true;
+        if (!isFinalStep && notifyNext && updatedSteps[currentStep + 1]?.approverEmail) {
           const nextStepIdx = currentStep + 1;
           const nextAudit = updatedSteps[nextStepIdx];
           const newNotif: ActionEmailNotification = {
@@ -645,6 +771,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const rejectRequest = (requestId: string, reason: string) => {
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    closeOpenNotifications(requestId, 'rejected');
 
     setRequests(prev =>
       prev.map(req => {
@@ -805,6 +933,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         menuPermissions,
         togglePermission,
         setFormAccessForAll,
+        canManageForms,
+        canEditForm,
+        saveCustomForm,
+        deleteCustomForm,
         resetPermissions,
         isMenuPermittedForUser,
         workflows,

@@ -36,6 +36,9 @@ export const WorkflowBuilderView: React.FC = () => {
     employees,
     canAccessTab,
     setActiveTab,
+    setActiveDeptFilter,
+    menuPermissions,
+    departments,
     showToast,
   } = useApp();
 
@@ -51,6 +54,11 @@ export const WorkflowBuilderView: React.FC = () => {
   const [activeStepEditingId, setActiveStepEditingId] = useState<string | null>(null);
 
   if (!activeWorkflow) return null;
+
+  // Forms a department built itself keep their approval steps in the form builder;
+  // editing them here as well would let the two screens overwrite each other
+  const builtForm = menuPermissions.find(f => f.workflowId === activeWorkflow.id && f.fields);
+  const builtFormDept = builtForm ? departments.find(d => d.id === builtForm.ownerDepartmentId) : undefined;
 
   // A real request of this form (if any) supplies the details shown in the email previews
   const previewRequest = requests.find(r => r.workflowId === activeWorkflow.id) ?? null;
@@ -159,6 +167,7 @@ export const WorkflowBuilderView: React.FC = () => {
           </div>
 
           {/* Add Step Button */}
+          {!builtForm && (
           <div className="pt-4 border-t border-slate-100 mt-4">
             <button
               onClick={() => addWorkflowStep(activeWorkflow.steps.length - 1)}
@@ -168,9 +177,29 @@ export const WorkflowBuilderView: React.FC = () => {
               <span>+ เพิ่มขั้นตอนในสายการอนุมัติ (Add Step)</span>
             </button>
           </div>
+          )}
         </div>
 
         {/* Right Column (7 cols): Step Configuration Panel */}
+        {builtForm ? (
+          <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3 self-start">
+            <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มนี้ตั้งค่าในตัวสร้างแบบฟอร์ม</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              "{builtForm.menuName}" สร้างโดย {builtFormDept?.nameEn ?? 'หน่วยงาน'} ขั้นตอนอนุมัติ ช่องข้อมูล และหน่วยงานที่ยื่นได้
+              แก้ไขที่เดียวในตัวสร้างแบบฟอร์ม ผังด้านซ้ายและตัวอย่างอีเมลด้านล่างแสดงค่าปัจจุบัน
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveDeptFilter(builtForm.ownerDepartmentId);
+                setActiveTab('department_view');
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+            >
+              ไปที่หน้า {builtFormDept?.nameEn ?? 'หน่วยงาน'} เพื่อแก้ไขแบบฟอร์ม
+            </button>
+          </div>
+        ) : (
         <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
@@ -351,6 +380,7 @@ export const WorkflowBuilderView: React.FC = () => {
             </button>
           </div>
         </div>
+        )}
       </div>
 
       {/* Outgoing email previews for the selected form — read-only, one standard wording */}

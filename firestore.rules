@@ -5,8 +5,10 @@ rules_version = '2';
 // - Nobody can read or write anything without signing in.
 // - Everyone signed in can read all data and
 //   create / update requests and their notifications.
-// - Only the admin accounts listed in isAdmin() can change employees, form
-//   permissions, and approval workflows, or delete anything.
+// - Anyone signed in can create a form (and its workflow) for their department;
+//   only its creator or an admin can change or delete it afterwards.
+// - Only the admin accounts listed in isAdmin() can change employees, the
+//   original IT forms and their workflows, or delete requests.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -37,14 +39,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Forms built by a department record who created them
+    function createsAsSelf() {
+      return signedIn() && request.resource.data.createdBy == request.auth.token.email;
+    }
+    function ownsExisting() {
+      return signedIn() && resource.data.get('createdBy', '') == request.auth.token.email;
+    }
+
     match /menuPermissions/{id} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || createsAsSelf();
+      allow update: if isAdmin() || (ownsExisting() && createsAsSelf());
+      allow delete: if isAdmin() || ownsExisting();
     }
 
     match /workflows/{id} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow create: if isAdmin() || createsAsSelf();
+      allow update: if isAdmin() || (ownsExisting() && createsAsSelf());
+      allow delete: if isAdmin() || ownsExisting();
     }
 
     // Marker that the starting data has been loaded

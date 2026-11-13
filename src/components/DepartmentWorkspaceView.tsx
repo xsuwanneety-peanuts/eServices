@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { DepartmentId, ItRequestCategory } from '../types';
+import { DepartmentId, ItRequestCategory, MenuItemPermission } from '../types';
+import { FormBuilderModal } from './FormBuilderModal';
+import { CustomRequestModal } from './CustomRequestModal';
 import {
   FileText,
   Lock,
@@ -18,6 +20,8 @@ import {
   ArrowRight,
   FolderPlus,
   Inbox,
+  Plus,
+  Pencil,
 } from 'lucide-react';
 
 export const DepartmentWorkspaceView: React.FC = () => {
@@ -36,7 +40,14 @@ export const DepartmentWorkspaceView: React.FC = () => {
     canAccessTab,
     canApprove,
     canViewRequest,
+    canManageForms,
+    canEditForm,
   } = useApp();
+
+  // Form builder: undefined = closed, null = new form, otherwise the form being edited
+  const [builderForm, setBuilderForm] = useState<MenuItemPermission | null | undefined>(undefined);
+  // Department-built form being filled in
+  const [fillingForm, setFillingForm] = useState<MenuItemPermission | null>(null);
 
   const deptIcons: Record<DepartmentId, React.ElementType> = {
     compliance_legal: Shield,
@@ -56,6 +67,18 @@ export const DepartmentWorkspaceView: React.FC = () => {
   const DeptIcon = deptIcons[currentDeptKey] || Laptop;
   // Forms this department provides (configured in ตั้งค่าสิทธิ์เข้าถึง)
   const deptForms = menuPermissions.filter(f => f.ownerDepartmentId === currentDeptKey);
+  const canCreate = canManageForms(currentDeptKey);
+
+  const createButton = (
+    <button
+      type="button"
+      onClick={() => setBuilderForm(null)}
+      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer"
+    >
+      <Plus className="w-4 h-4" />
+      สร้างแบบฟอร์มใหม่
+    </button>
+  );
 
   // Requests belonging strictly to this department
   const deptRequests = requests.filter(r => r.departmentId === currentDeptKey && canViewRequest(r));
@@ -81,16 +104,14 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {/* Forms Section: only the forms this department provides */}
       {deptForms.length > 0 ? (
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between gap-3 mb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มฝ่าย {deptInfo.nameEn}</h3>
               <p className="text-xs text-slate-500">
                 ทั้งหมด {deptForms.length} แบบฟอร์ม — เปิดใช้ได้ตามสิทธิ์ของหน่วยงานคุณ
               </p>
             </div>
-            <span className="text-xs bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-md border border-red-200">
-              {deptForms.length} แบบฟอร์ม
-            </span>
+            {canCreate && createButton}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -123,8 +144,8 @@ export const DepartmentWorkspaceView: React.FC = () => {
                     </div>
 
                     <h4 className="text-sm font-bold text-slate-800">{form.menuName}</h4>
-                    <p className="text-xs text-slate-500 mt-1">
-                      คลิกเพื่อเปิดแบบฟอร์มคำขอและเริ่มขั้นตอนการอนุมัติอัตโนมัติ
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                      {form.description || 'คลิกเพื่อเปิดแบบฟอร์มคำขอและเริ่มขั้นตอนการอนุมัติอัตโนมัติ'}
                     </p>
                   </div>
 
@@ -132,6 +153,10 @@ export const DepartmentWorkspaceView: React.FC = () => {
                     {hasAccess ? (
                       <button
                         onClick={() => {
+                          if (form.fields) {
+                            setFillingForm(form);
+                            return;
+                          }
                           const itFormCategoryMap: Record<string, ItRequestCategory> = {
                             'form-it-access': 'system_access',
                             'form-it-equipment': 'equipment',
@@ -157,6 +182,16 @@ export const DepartmentWorkspaceView: React.FC = () => {
                         ดูการตั้งค่าสิทธิ์ (RBAC) →
                       </button>
                     )}
+                    {canEditForm(form) && (
+                      <button
+                        type="button"
+                        onClick={() => setBuilderForm(form)}
+                        title={`แก้ไขแบบฟอร์ม ${form.menuName}`}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -164,17 +199,11 @@ export const DepartmentWorkspaceView: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Empty State for other departments waiting for their forms to be added */
+        /* Empty state: no forms yet */
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                แบบฟอร์มประจำหน่วยงาน ({deptInfo.nameEn})
-              </h3>
-              <p className="text-xs text-slate-500">
-                ขณะนี้แบบฟอร์มของหน่วยงานนี้ยังไม่ได้เปิดใช้งาน
-              </p>
-            </div>
+          <div className="mb-3">
+            <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มฝ่าย {deptInfo.nameEn}</h3>
+            <p className="text-xs text-slate-500">หน่วยงานนี้ยังไม่มีแบบฟอร์ม</p>
           </div>
 
           <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center space-y-3">
@@ -182,29 +211,17 @@ export const DepartmentWorkspaceView: React.FC = () => {
               <FolderPlus className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-slate-800">
-                ยังไม่มีแบบฟอร์มเปิดใช้งานในหน่วยงานนี้
-              </h4>
+              <h4 className="text-sm font-bold text-slate-800">ยังไม่มีแบบฟอร์มในหน่วยงานนี้</h4>
               <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-                อยู่ระหว่างการจัดเตรียมและออกแบบฟอร์มสำหรับ {deptInfo.nameEn} ({deptInfo.nameTh}) โดยปัจจุบันระบบเปิดให้บริการเฉพาะแบบฟอร์มของฝ่าย Information Technology 5 ด้าน
+                {canCreate
+                  ? `สร้างแบบฟอร์มของ ${deptInfo.nameEn} ได้เอง กำหนดช่องข้อมูล ผู้อนุมัติ และหน่วยงานที่ยื่นได้`
+                  : `เมื่อ ${deptInfo.nameEn} สร้างแบบฟอร์มแล้ว จะแสดงที่นี่`}
               </p>
             </div>
-            <div className="pt-2 flex justify-center">
-              <button
-                onClick={() => {
-                  setActiveTab('department_view');
-                  setActiveDeptFilter('it');
-                }}
-                className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-bold border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <span>ไปที่แบบฟอร์มฝ่าย Information Technology</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            {canCreate && <div className="pt-2 flex justify-center">{createButton}</div>}
           </div>
         </div>
       )}
-
       {/* Recent Requests for this Department */}
       <div>
         <h3 className="text-sm font-bold text-slate-900 mb-3">
@@ -240,10 +257,18 @@ export const DepartmentWorkspaceView: React.FC = () => {
                     className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                       req.status === 'approved'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
+                        : req.status === 'returned' || req.status === 'rejected'
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-amber-100 text-amber-800'
                     }`}
                   >
-                    {req.status === 'approved' ? 'อนุมัติแล้ว' : 'รอตรวจสอบ'}
+                    {req.status === 'approved'
+                      ? 'อนุมัติแล้ว'
+                      : req.status === 'returned'
+                        ? 'ตีกลับ'
+                        : req.status === 'rejected'
+                          ? 'ไม่อนุมัติ'
+                          : 'รอตรวจสอบ'}
                   </span>
                   <ArrowRight className="w-4 h-4 text-slate-300" />
                 </div>
@@ -256,6 +281,11 @@ export const DepartmentWorkspaceView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {builderForm !== undefined && (
+        <FormBuilderModal deptId={currentDeptKey} form={builderForm} onClose={() => setBuilderForm(undefined)} />
+      )}
+      {fillingForm && <CustomRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />}
     </div>
   );
 };
