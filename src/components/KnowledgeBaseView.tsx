@@ -79,9 +79,6 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => 
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Knowledge Base</h1>
         </div>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
-          คลังความรู้และคู่มือการทำงานสำหรับพนักงานทุกหน่วยงาน
-        </p>
       </div>
 
       {/* Search + department filter */}
@@ -173,9 +170,7 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => 
           <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
             <SearchX className="w-6 h-6" />
           </div>
-          <p className="mt-3 text-sm font-bold text-slate-700">ไม่พบความรู้ที่ตรงกับคำค้นหา</p>
-          <p className="text-xs text-slate-400 mt-0.5">ลองใช้คำอื่น หรือเลือก "ทั้งหมด"</p>
-        </div>
+          <p className="mt-3 text-sm font-bold text-slate-700">ไม่พบความรู้ที่ตรงกับคำค้นหา</p>        </div>
       )}
     </div>
   );

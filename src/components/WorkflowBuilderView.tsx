@@ -78,20 +78,17 @@ export const WorkflowBuilderView: React.FC = () => {
               <GitBranch className="w-4 h-4" />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              ตั้งค่า Flow อนุมัติ & แจ้งเตือนอีเมล
+              Flow อนุมัติ
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            กำหนดลำดับผู้อนุมัติของแต่ละแบบฟอร์ม เลือกผู้อนุมัติจาก Employee Directory และเปิด/ปิดการแจ้งเตือน — การแก้ไขบันทึกอัตโนมัติ
-          </p>
         </div>
 
         {/* Workflow Selector & Save */}
-        <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center w-full md:w-auto shrink-0">
           <select
             value={selectedWorkflowId}
             onChange={e => setSelectedWorkflowId(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:border-red-500 shadow-xs"
+            className="w-full md:w-auto px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:border-red-500 shadow-xs"
           >
             {workflows.map(wf => (
               <option key={wf.id} value={wf.id}>
@@ -110,7 +107,7 @@ export const WorkflowBuilderView: React.FC = () => {
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                ผังสายการอนุมัติ (Visual Diagram)
+                ผังการอนุมัติ
               </span>
               <span className="text-xs bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-md">
                 {activeWorkflow.steps.length} ขั้นตอน
@@ -167,7 +164,7 @@ export const WorkflowBuilderView: React.FC = () => {
               className="w-full py-2.5 px-3 rounded-xl border border-dashed border-red-400 text-red-700 bg-red-50/40 hover:bg-red-50 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>+ เพิ่มขั้นตอนในสายการอนุมัติ (Add Step)</span>
+              <span>+ เพิ่มขั้นตอน</span>
             </button>
           </div>
           )}
@@ -178,8 +175,7 @@ export const WorkflowBuilderView: React.FC = () => {
           <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3 self-start">
             <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มนี้ตั้งค่าในตัวสร้างแบบฟอร์ม</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              "{builtForm.menuName}" สร้างโดย {builtFormDept?.nameEn ?? 'หน่วยงาน'} ขั้นตอนอนุมัติ ช่องข้อมูล และหน่วยงานที่ยื่นได้
-              แก้ไขที่เดียวในตัวสร้างแบบฟอร์ม ผังด้านซ้ายและตัวอย่างอีเมลด้านล่างแสดงค่าปัจจุบัน
+              แบบฟอร์มของ {builtFormDept?.nameEn ?? 'หน่วยงาน'} — แก้ไขได้ที่ตัวสร้างแบบฟอร์ม
             </p>
             <button
               type="button"
@@ -197,9 +193,6 @@ export const WorkflowBuilderView: React.FC = () => {
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-900">กำหนดผู้อนุมัติ & การแจ้งเตือน</h3>
-              <p className="text-xs text-slate-400">
-                เลือกผู้อนุมัติจาก Employee Directory ระบบจะส่งอีเมลถึงผู้อนุมัติตามข้อมูลพนักงานในนั้น
-              </p>
             </div>
             <button
               onClick={() => {
@@ -368,13 +361,10 @@ export const WorkflowBuilderView: React.FC = () => {
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
               <Eye className="w-4 h-4 text-red-600" />
-              ตัวอย่างอีเมลที่จะส่งออก — {activeWorkflow.formTitle}
+              ตัวอย่างอีเมล
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              ทุกแบบฟอร์มใช้ข้อความมาตรฐานชุดเดียวกัน ต่างกันเฉพาะผู้รับและรายละเอียดคำร้อง ตอนนี้ระบบแจ้งผ่านกระดิ่งในระบบ ยังไม่ส่งอีเมลออกจริง
-              {previewRequest
-                ? ` (ตัวอย่างนี้ใช้ข้อมูลจากคำร้อง ${previewRequest.code})`
-                : ' (ยังไม่มีคำร้องของแบบฟอร์มนี้ จึงแสดงด้วยข้อมูลสมมติ)'}
+              ยังไม่ส่งอีเมลจริง แจ้งผ่านกระดิ่งในระบบ
             </p>
           </div>
           {canAccessTab('employee_directory') && (

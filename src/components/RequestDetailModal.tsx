@@ -117,8 +117,8 @@ export const RequestDetailModal: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
           {/* Top Status & Summary Card */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center space-x-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 [&>span]:whitespace-nowrap [&>span]:max-w-full [&>span]:truncate">
                 {activeRequest.priority && (
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
                     activeRequest.priority === 'P1'
@@ -156,7 +156,7 @@ export const RequestDetailModal: React.FC = () => {
               </div>
               <h2 className="text-lg font-bold text-slate-900 mt-2">{activeRequest.title}</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                ยื่นโดย: <strong>{activeRequest.requestorName}</strong> ({activeRequest.requestorDepartment}) • เมื่อ {activeRequest.createdAt}
+                {activeRequest.requestorName} · {activeRequest.createdAt}
               </p>
             </div>
 
