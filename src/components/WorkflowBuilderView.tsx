@@ -28,7 +28,7 @@ export const WorkflowBuilderView: React.FC = () => {
     addWorkflowStep,
     removeWorkflowStep,
     moveWorkflowStep,
-    saveWorkflowChanges,
+
     setIsEmailSimulatorModalOpen,
     setSelectedNotificationId,
     myNotifications,
@@ -82,7 +82,7 @@ export const WorkflowBuilderView: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            <strong>Core Concept 2:</strong> ปรับเปลี่ยนลำดับสายการอนุมัติของแบบฟอร์มไอทีทั้ง 5 ด้านได้อย่างอิสระ ระบุผู้รับผิดชอบ และเปิดระบบแจ้งเตือนอีเมลอัตโนมัติ
+            กำหนดลำดับผู้อนุมัติของแต่ละแบบฟอร์ม เลือกผู้อนุมัติจาก Employee Directory และเปิด/ปิดการแจ้งเตือน — การแก้ไขบันทึกอัตโนมัติ
           </p>
         </div>
 
@@ -100,13 +100,6 @@ export const WorkflowBuilderView: React.FC = () => {
             ))}
           </select>
 
-          <button
-            onClick={saveWorkflowChanges}
-            className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer"
-          >
-            <Save className="w-4 h-4" />
-            <span>อัปเดตและบันทึก</span>
-          </button>
         </div>
       </div>
 
@@ -354,14 +347,10 @@ export const WorkflowBuilderView: React.FC = () => {
                         />
                         <span className="flex items-center gap-1 text-slate-800">
                           <Mail className="w-3.5 h-3.5 text-red-600" />
-                          ส่ง Email แจ้งเตือนอัตโนมัติ (Action-Driven Notification)
+                          แจ้งเตือนผู้อนุมัติขั้นนี้
                         </span>
                       </label>
 
-                      <div className="flex items-center space-x-1.5 text-[11px] text-slate-500">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span>SLA: {step.slaHours || 24} ชม.</span>
-                      </div>
                     </div>
                   )}
                 </div>
@@ -369,16 +358,6 @@ export const WorkflowBuilderView: React.FC = () => {
             })}
           </div>
 
-          {/* Save Button */}
-          <div className="pt-3 border-t border-slate-100 flex justify-end">
-            <button
-              onClick={saveWorkflowChanges}
-              className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm shadow-xs transition-colors cursor-pointer flex items-center space-x-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>อัปเดตและบันทึก</span>
-            </button>
-          </div>
         </div>
         )}
       </div>
@@ -392,7 +371,7 @@ export const WorkflowBuilderView: React.FC = () => {
               ตัวอย่างอีเมลที่จะส่งออก — {activeWorkflow.formTitle}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              ทุกแบบฟอร์มและทุกขั้นตอนใช้ข้อความมาตรฐานชุดเดียวกัน ต่างกันเฉพาะผู้รับและรายละเอียดคำร้อง
+              ทุกแบบฟอร์มใช้ข้อความมาตรฐานชุดเดียวกัน ต่างกันเฉพาะผู้รับและรายละเอียดคำร้อง ตอนนี้ระบบแจ้งผ่านกระดิ่งในระบบ ยังไม่ส่งอีเมลออกจริง
               {previewRequest
                 ? ` (ตัวอย่างนี้ใช้ข้อมูลจากคำร้อง ${previewRequest.code})`
                 : ' (ยังไม่มีคำร้องของแบบฟอร์มนี้ จึงแสดงด้วยข้อมูลสมมติ)'}
@@ -419,7 +398,7 @@ export const WorkflowBuilderView: React.FC = () => {
                 : step.approverType === 'employee'
                   ? employees.find(e => e.id === step.approverEmployeeId)
                   : undefined;
-              const email = renderStepEmail(step.title, approver?.name, previewRequest);
+              const email = renderStepEmail(step.title, approver?.name, previewRequest, activeWorkflow.departmentId);
               return (
                 <div key={step.id} className="rounded-xl border border-slate-200 overflow-hidden text-xs">
                   <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2">

@@ -84,7 +84,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
   const deptRequests = requests.filter(r => r.departmentId === currentDeptKey && canViewRequest(r));
   // Staff of this department (and system admins) see every request; others only their own
   const seesAllDeptRequests =
-    isSystemAdmin || (canApprove && currentUser.departmentId === currentDeptKey);
+    isSystemAdmin || currentUser.departmentId === currentDeptKey;
 
   return (
     <div className="space-y-5">

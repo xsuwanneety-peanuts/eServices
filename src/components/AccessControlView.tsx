@@ -51,13 +51,7 @@ export const AccessControlView: React.FC = () => {
             <RotateCcw className="w-3.5 h-3.5" />
             <span>รีเซ็ตค่ามาตรฐาน</span>
           </button>
-          <button
-            onClick={() => showToast('บันทึกการตั้งค่าสิทธิ์เข้าถึงเรียบร้อยแล้ว', 'success')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>บันทึกการตั้งค่า</span>
-          </button>
+          <span className="text-[11px] text-slate-400">บันทึกอัตโนมัติ</span>
         </div>
       </div>
 

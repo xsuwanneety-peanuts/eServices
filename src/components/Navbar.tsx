@@ -365,7 +365,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                       }}
                       className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
                     >
-                      เปิดดูการจำลอง Action-Driven Email ทั้งหมด
+                      ดูอีเมลขออนุมัติทั้งหมด
                     </button>
                   </div>
                 )}

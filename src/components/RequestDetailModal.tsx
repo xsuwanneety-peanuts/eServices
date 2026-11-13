@@ -67,10 +67,10 @@ export const RequestDetailModal: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold tracking-tight">100% Traceability: ตรวจสอบสถานะคำร้องไอที</h3>
+                <h3 className="text-base font-bold tracking-tight">รายละเอียดคำร้อง</h3>
               </div>
               <p className="text-xs text-red-100">
-                รหัสคำร้อง: <strong className="text-white font-mono">{activeRequest.code}</strong> • ตรวจสอบได้ทุกวินาที เอกสารไม่มีวันสูญหาย
+                รหัสคำร้อง: <strong className="text-white font-mono">{activeRequest.code}</strong> • {activeRequest.category}
               </p>
             </div>
           </div>
@@ -141,7 +141,7 @@ export const RequestDetailModal: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottleneck Indicator Banner (Core Concept 4 feature) */}
+          {/* Where the request is waiting now */}
           {isPending && currentStep && (
             <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 flex items-start space-x-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -151,7 +151,7 @@ export const RequestDetailModal: React.FC = () => {
                 </p>
                 <p className="text-amber-800 mt-0.5">
                   เอกสารอยู่ที่ขั้นตอนที่ {activeRequest.currentStepIndex + 1}: <strong>{currentStep.stepTitle}</strong> ({currentStep.approverRole || currentStep.approverName})
-                  — ระบบส่งแจ้งเตือนทางอีเมลอัตโนมัติแล้ว ไม่จำเป็นต้องโทรตามเรื่อง
+                  — ระบบแจ้งเตือนผู้อนุมัติในระบบแล้ว
                 </p>
               </div>
             </div>
@@ -200,14 +200,14 @@ export const RequestDetailModal: React.FC = () => {
             </div>
           </div>
 
-          {/* 100% Traceability Timeline with Digital Signature Stamps */}
+          {/* Approval history */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-blue-600" />
-                <span>เส้นทางการประทับตราและบันทึกประวัติ (Audit Trail & Digital Stamps)</span>
+                <span>ประวัติการอนุมัติ</span>
               </h4>
-              <span className="text-[11px] text-slate-400">บันทึกด้วยระบบ SHA-256 ป้องกันการแก้ไข</span>
+
             </div>
 
             <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
