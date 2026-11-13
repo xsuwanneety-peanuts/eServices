@@ -167,6 +167,8 @@ interface AppContextType {
   createNewRequest: (newReq: Partial<DocumentRequest>) => DocumentRequest;
   approveRequest: (requestId: string, comment?: string) => void;
   rejectRequest: (requestId: string, reason: string) => void;
+  /** Requester fixes a returned request and sends it back to the step that returned it. */
+  resubmitRequest: (requestId: string, input: { title: string; details: string; note: string }) => void;
   activeRequest: DocumentRequest | null;
   setActiveRequestId: (id: string | null) => void;
 
@@ -808,6 +810,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`ส่งคืน/ตีกลับเอกสารถึงผู้ยื่นคำร้องพร้อมระบุเหตุผลแล้ว`, 'warning');
   };
 
+  const resubmitRequest = (requestId: string, input: { title: string; details: string; note: string }) => {
+    const req = requests.find(r => r.id === requestId);
+    if (!req || req.status !== 'returned') return;
+    const returnedAt = req.steps.findIndex(s => s.status === 'rejected');
+    if (returnedAt < 0) return;
+
+    const now = new Date();
+    const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const returnedStep = req.steps[returnedAt];
+    const resubmitNote = `ส่งใหม่ ${dateStr}${input.note ? `: ${input.note}` : ''}`;
+    const detailsChanged = input.details !== req.details;
+
+    setRequests(prev =>
+      prev.map(r => {
+        if (r.id !== requestId) return r;
+        return {
+          ...r,
+          title: input.title,
+          details: input.details,
+          // Answers of a built form are shown from `details`; drop the old copy once it is edited
+          answers: detailsChanged ? undefined : r.answers,
+          status: 'in_review' as const,
+          currentStepIndex: returnedAt,
+          updatedAt: dateStr,
+          steps: r.steps.map((s, idx) => {
+            if (idx === 0) return { ...s, comment: s.comment ? `${s.comment}\n${resubmitNote}` : resubmitNote };
+            if (idx === returnedAt) {
+              // Back to the same approver, keeping the earlier reason visible
+              return {
+                ...s,
+                status: 'pending' as const,
+                timestamp: undefined,
+                digitalSignatureHash: undefined,
+                comment: `ตีกลับครั้งก่อน: ${(s.comment ?? '').replace(/^ตีกลับ: /, '')}`,
+              };
+            }
+            return s;
+          }),
+        };
+      })
+    );
+
+    if (returnedStep.approverEmail) {
+      setEmailNotifications(prev => [
+        {
+          id: `email-${Date.now()}`,
+          requestId: req.id,
+          requestCode: req.code,
+          requestTitle: input.title,
+          recipientEmail: returnedStep.approverEmail,
+          recipientName: returnedStep.approverName,
+          senderName: `${currentUser.name} (ส่งใหม่หลังแก้ไข)`,
+          stepTitle: returnedStep.stepTitle,
+          createdAt: dateStr,
+          read: false,
+          amount: req.amount,
+        },
+        ...prev,
+      ]);
+    }
+    showToast(`ส่งคำร้อง ${req.code} กลับไปที่ขั้น "${returnedStep.stepTitle}" แล้ว`, 'success');
+  };
+
   // Approve or return straight from the approval email preview
   const executeEmailAction = (notificationId: string, action: 'approved' | 'rejected', comment?: string) => {
     const notif = emailNotifications.find(n => n.id === notificationId);
@@ -953,6 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createNewRequest,
         approveRequest,
         rejectRequest,
+        resubmitRequest,
         activeRequest,
         setActiveRequestId,
         emailNotifications,
