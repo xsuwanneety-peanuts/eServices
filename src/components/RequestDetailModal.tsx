@@ -161,7 +161,7 @@ export const RequestDetailModal: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="space-y-1">
               <span className="text-slate-400 font-medium">รายละเอียดคำร้อง:</span>
-              <p className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 leading-relaxed">
+              <p className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 leading-relaxed whitespace-pre-line">
                 {activeRequest.details}
               </p>
             </div>

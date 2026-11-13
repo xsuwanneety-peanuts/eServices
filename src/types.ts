@@ -77,6 +77,7 @@ export interface WorkflowDefinition {
   description: string;
   itilCategory?: ItilCategory;
   steps: ApprovalStepConfig[];
+  createdBy?: string;
 }
 
 export interface ApprovalAuditEntry {
@@ -122,6 +123,9 @@ export interface DocumentRequest {
   currentStepIndex: number;
   steps: ApprovalAuditEntry[];
   qrCodeUrl?: string;
+  /** Set when the request was made with a department-built form. */
+  formId?: string;
+  answers?: { label: string; value: string }[];
 }
 
 /** One block of a knowledge article: a heading with paragraphs, numbered steps, and/or a tip. */
@@ -146,6 +150,18 @@ export interface KnowledgeArticle {
   relatedForm?: { label: string; category: ItRequestCategory };
 }
 
+export type FormFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select';
+
+/** One input on a department-built form. */
+export interface FormFieldDefinition {
+  id: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  /** Choices for a 'select' field. */
+  options?: string[];
+}
+
 export interface MenuItemPermission {
   id: string;
   menuCode: string;
@@ -153,6 +169,12 @@ export interface MenuItemPermission {
   category: string;
   /** Department that provides the form (its forms appear on that department's page). */
   ownerDepartmentId: DepartmentId;
+  // ---- Set on forms a department builds itself (the original IT forms have their own screen) ----
+  description?: string;
+  fields?: FormFieldDefinition[];
+  workflowId?: string;
+  /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */
+  createdBy?: string;
   allowedDepartments: Record<DepartmentId, boolean>;
 }
 
