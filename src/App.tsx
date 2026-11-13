@@ -26,19 +26,15 @@ const AppContent: React.FC = () => {
 
   if (!dataReady) return <FullScreenLoader message="กำลังโหลดข้อมูล..." />;
 
-  // Fresh project before the first admin sign-in has filled in the starting data
-  if (employees.length === 0) {
+  // No employees yet (a fresh project): admins go in to set things up, everyone else waits
+  if (employees.length === 0 && !isAdminLogin) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
         <div className="max-w-sm text-center space-y-3">
           <p className="text-2xl font-black text-red-700">e-Service</p>
-          <p className="text-sm font-bold text-slate-800">
-            {isAdminLogin ? 'กำลังตั้งค่าข้อมูลเริ่มต้น...' : 'ระบบยังไม่มีข้อมูล'}
-          </p>
+          <p className="text-sm font-bold text-slate-800">ระบบยังไม่มีข้อมูลพนักงาน</p>
           <p className="text-xs text-slate-500">
-            {isAdminLogin
-              ? 'ถ้าค้างอยู่หน้านี้ ให้ตรวจว่าตั้ง Firestore rules และอีเมลผู้ดูแลระบบถูกต้อง'
-              : 'ผู้ดูแลระบบต้องเข้าสู่ระบบครั้งแรกเพื่อตั้งค่าข้อมูลก่อน'}
+            ผู้ดูแลระบบต้องเข้าสู่ระบบเพื่อเพิ่มพนักงานใน Employee Directory ก่อน
           </p>
           <button
             type="button"
