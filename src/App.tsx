@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { AuthGate, FullScreenLoader, useAuth } from './components/AuthGate';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { AccessControlView } from './components/AccessControlView';
@@ -19,8 +20,37 @@ import { PrintSlipModal } from './components/PrintSlipModal';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, toast } = useApp();
+  const { activeTab, toast, dataReady, employees } = useApp();
+  const { isAdminLogin, signOutUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
+
+  if (!dataReady) return <FullScreenLoader message="กำลังโหลดข้อมูล..." />;
+
+  // Fresh project before the first admin sign-in has filled in the starting data
+  if (employees.length === 0) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-sm text-center space-y-3">
+          <p className="text-2xl font-black text-red-700">e-Service</p>
+          <p className="text-sm font-bold text-slate-800">
+            {isAdminLogin ? 'กำลังตั้งค่าข้อมูลเริ่มต้น...' : 'ระบบยังไม่มีข้อมูล'}
+          </p>
+          <p className="text-xs text-slate-500">
+            {isAdminLogin
+              ? 'ถ้าค้างอยู่หน้านี้ ให้ตรวจว่าตั้ง Firestore rules และอีเมลผู้ดูแลระบบถูกต้อง'
+              : 'ผู้ดูแลระบบต้องเข้าสู่ระบบครั้งแรกเพื่อตั้งค่าข้อมูลก่อน'}
+          </p>
+          <button
+            type="button"
+            onClick={signOutUser}
+            className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-50 text-slate-800 overflow-hidden">
@@ -63,8 +93,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthGate>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthGate>
   );
 }
