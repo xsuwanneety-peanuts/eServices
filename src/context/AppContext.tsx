@@ -24,7 +24,7 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
-import { isArray, isString, usePersistentState } from '../utils/persistentState';
+import { isArray, usePersistentState } from '../utils/persistentState';
 import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
 
@@ -113,10 +113,10 @@ interface AppContextType {
   // Corporate departments
   departments: DepartmentInfo[];
 
-  // Current user & persona switcher
+  /** The employee who is signed in, matched by sign-in email in the Employee Directory. */
   currentUser: UserPersona;
-  setCurrentUser: (user: UserPersona) => void;
-  availablePersonas: UserPersona[];
+  /** False when the signed-in email is not in the Employee Directory yet. */
+  isLinkedAccount: boolean;
 
   // Employee Directory (also the source of approvers and email recipients)
   employees: UserPersona[];
@@ -213,7 +213,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAdminLogin } = useAuth();
+  const { user, isAdminLogin } = useAuth();
+  const signedInEmail = (user.email ?? '').toLowerCase();
 
   // Write failures (e.g. the staff account editing admin-only data) are reported, and the
   // Firestore listener puts the shared data back the way it was
@@ -230,24 +231,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Shared through Firestore: every device sees the same data
   const [employees, setEmployees, employeesLoaded] = useFirestoreCollection<UserPersona>('employees', handleWriteError);
 
-  // Kept per device: who this browser is acting as, and which updates it has already seen
-  const [currentUserId, setCurrentUserId] = usePersistentState<string>(
-    'currentUserId',
-    USER_PERSONAS[0].id, // Default to the first IT team member
-    isString
-  );
-  const currentUser = employees.find(e => e.id === currentUserId) ?? employees[0] ?? NO_USER;
+  // Each account is one employee: the directory entry with the same email as the sign-in
+  const linkedEmployee = employees.find(e => e.email.toLowerCase() === signedInEmail);
+  const isLinkedAccount = !!linkedEmployee;
+  // An admin account that is not in the directory yet still needs to get in to add people,
+  // so it gets a temporary admin profile; other unlinked accounts are stopped in App
+  const currentUser: UserPersona =
+    linkedEmployee ??
+    (isAdminLogin
+      ? {
+          id: `account:${user.uid}`,
+          name: signedInEmail,
+          email: signedInEmail,
+          departmentId: 'it',
+          departmentName: 'Information Technology (เทคโนโลยีสารสนเทศ)',
+          position: 'ผู้ดูแลระบบ',
+          role: 'admin',
+          avatar: initialsAvatar(signedInEmail),
+        }
+      : NO_USER);
   const [activeTab, setActiveTab] = useState<string>('my_workspace');
+  // Which progress updates this account has already seen (kept in this browser, per account)
   const [seenStatusUpdateKeys, setSeenStatusUpdateKeys] = usePersistentState<string[]>(
-    'seenStatusUpdates',
+    `seenStatusUpdates:${signedInEmail}`,
     [],
     isArray
   );
-
-  // Switching persona: leave system-management screens the new user may not open
-  const setCurrentUser = (user: UserPersona) => {
-    setCurrentUserId(user.id);
-  };
   const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
 
@@ -782,8 +791,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       value={{
         departments: CORPORATE_DEPARTMENTS,
         currentUser,
-        setCurrentUser,
-        availablePersonas: employees,
+        isLinkedAccount,
         employees,
         addEmployee,
         updateEmployee,

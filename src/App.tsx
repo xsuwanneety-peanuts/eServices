@@ -20,8 +20,8 @@ import { PrintSlipModal } from './components/PrintSlipModal';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, toast, dataReady, employees } = useApp();
-  const { isAdminLogin, signOutUser } = useAuth();
+  const { activeTab, toast, dataReady, employees, isLinkedAccount } = useApp();
+  const { user, isAdminLogin, signOutUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
 
   if (!dataReady) return <FullScreenLoader message="กำลังโหลดข้อมูล..." />;
@@ -39,6 +39,29 @@ const AppContent: React.FC = () => {
             {isAdminLogin
               ? 'ถ้าค้างอยู่หน้านี้ ให้ตรวจว่าตั้ง Firestore rules และอีเมลผู้ดูแลระบบถูกต้อง'
               : 'ผู้ดูแลระบบต้องเข้าสู่ระบบครั้งแรกเพื่อตั้งค่าข้อมูลก่อน'}
+          </p>
+          <button
+            type="button"
+            onClick={signOutUser}
+            className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Signed in, but nobody in the Employee Directory has this email yet
+  if (!isLinkedAccount && !isAdminLogin) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-sm text-center space-y-3">
+          <p className="text-2xl font-black text-red-700">e-Service</p>
+          <p className="text-sm font-bold text-slate-800">ยังไม่พบข้อมูลพนักงานของบัญชีนี้</p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            บัญชี <span className="font-mono text-slate-700">{user.email}</span> ยังไม่มีใน Employee Directory
+            กรุณาติดต่อฝ่าย Information Technology ให้เพิ่มพนักงานด้วยอีเมลนี้
           </p>
           <button
             type="button"

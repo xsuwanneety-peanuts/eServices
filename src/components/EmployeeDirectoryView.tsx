@@ -317,7 +317,7 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
           </div>
           <div>
             <label htmlFor="emp-email" className="block font-semibold text-slate-700 mb-1">
-              อีเมล (ใช้ส่งอีเมลขออนุมัติ)
+              อีเมล (ต้องตรงกับบัญชีที่ใช้เข้าสู่ระบบ และใช้รับอีเมลขออนุมัติ)
             </label>
             <input
               id="emp-email"
