@@ -366,7 +366,7 @@ export const FormBuilderModal: React.FC<{
                 [
                   ['all', 'ทุกหน่วยงาน'],
                   ['own', `เฉพาะ ${dept?.nameEn ?? 'หน่วยงานนี้'}`],
-                  ...(initialAudience === 'custom' ? [['custom', 'ตามที่ตั้งไว้ในหน้าตั้งค่าสิทธิ์เข้าถึง']] : []),
+                  ...(initialAudience === 'custom' ? [['custom', 'ตามที่ตั้งไว้ในหน้าสิทธิ์เข้าถึง']] : []),
                 ] as [FormAudience, string][]
               ).map(([value, label]) => (
                 <label key={value} className="flex items-center gap-2 text-slate-700 cursor-pointer">

@@ -25,12 +25,12 @@ import {
 
 // System administration tools
 const ADMIN_NAV_ITEMS = [
-  { tab: 'access_control', name: 'ตั้งค่าสิทธิ์เข้าถึง', icon: ShieldCheck },
-  { tab: 'workflow_builder', name: 'ตั้งค่า Flow อนุมัติ & แจ้งเตือน', icon: GitBranch },
+  { tab: 'access_control', name: 'สิทธิ์เข้าถึง', icon: ShieldCheck },
+  { tab: 'workflow_builder', name: 'Flow อนุมัติ', icon: GitBranch },
   { tab: 'employee_directory', name: 'Employee Directory', icon: Contact },
 ];
 
-const DEPT_GROUP_LABEL = 'หน่วยงานองค์กร';
+const DEPT_GROUP_LABEL = 'หน่วยงาน';
 const ADMIN_GROUP_LABEL = 'การจัดการระบบ';
 const HOME_LABEL = 'เมนูของฉัน';
 const KB_LABEL = 'Knowledge Base';
@@ -312,7 +312,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                       <div className="px-4 pt-2.5 pb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
                         <span>รอคุณอนุมัติ</span>
                         <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded-full normal-case tracking-normal">
-                          {pendingApprovalNotifs.length} รายการ
+                          {pendingApprovalNotifs.length}
                         </span>
                       </div>
                       <div className="divide-y divide-slate-100">
@@ -340,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                               <span className="text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded font-medium">
                                 {item.stepTitle}
                               </span>
-                              <span className="text-red-600 font-bold hover:underline">เปิดอนุมัติ →</span>
+                              
                             </div>
                           </div>
                         ))}
@@ -352,7 +352,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                   {myStatusUpdates.length > 0 && (
                     <div>
                       <div className="px-4 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        ความคืบหน้าคำร้องของฉัน
+                        คำร้องของฉัน
                       </div>
                       <div className="divide-y divide-slate-100">
                         {myStatusUpdates.map(update => (
@@ -406,7 +406,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                       }}
                       className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
                     >
-                      ดูอีเมลขออนุมัติทั้งหมด
+                      ดูทั้งหมด
                     </button>
                   </div>
                 )}
@@ -448,12 +448,12 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
 
                 {isAdminLogin && (
                   <p className="mx-4 mb-2 text-[11px] font-semibold text-red-700 bg-red-50 border border-red-100 rounded-lg px-2 py-1">
-                    ผู้ดูแลระบบ — เข้าเมนูการจัดการระบบได้
+                    ผู้ดูแลระบบ
                   </p>
                 )}
                 {!isLinkedAccount && (
                   <p className="mx-4 mb-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
-                    บัญชีนี้ยังไม่มีข้อมูลพนักงาน — เพิ่มอีเมลนี้ใน Employee Directory
+                    ยังไม่มีใน Employee Directory
                   </p>
                 )}
                 {isAdminLogin && (
@@ -464,7 +464,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                       className="w-full inline-flex items-center gap-1.5 py-2 text-xs font-semibold text-slate-600 hover:text-red-700 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      ดาวน์โหลดสำรองข้อมูล (JSON)
+                      สำรองข้อมูล
                     </button>
                   </div>
                 )}
@@ -491,7 +491,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
         <div className="hidden lg:block absolute left-0 right-0 top-14 mt-px bg-white border-b border-slate-200 shadow-xl z-40">
           <div className="max-w-[1280px] mx-auto px-6 py-5">
             <div className="pb-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              {DEPT_GROUP_LABEL} ({departments.length})
+              {DEPT_GROUP_LABEL}
             </div>
             <div className="grid grid-cols-3 xl:grid-cols-4 gap-2">
               {departments.map(dept => {
@@ -560,7 +560,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             }`}
           >
             <span>
-              {DEPT_GROUP_LABEL} ({departments.length})
+              {DEPT_GROUP_LABEL}
             </span>
             <ChevronDown
               className={`w-4 h-4 text-slate-400 transition-transform ${mobileSection === 'dept' ? 'rotate-180' : ''}`}

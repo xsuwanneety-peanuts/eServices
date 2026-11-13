@@ -61,9 +61,6 @@ export const EmployeeDirectoryView: React.FC = () => {
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Employee Directory</h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            ข้อมูลพนักงานและสายการบังคับบัญชา (Report to) — ระบบใช้ข้อมูลนี้กำหนดผู้รับอีเมลขออนุมัติ
-          </p>
         </div>
         <button
           type="button"

@@ -156,7 +156,7 @@ export const RequestDetailModal: React.FC = () => {
               </div>
               <h2 className="text-lg font-bold text-slate-900 mt-2">{activeRequest.title}</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                ยื่นโดย: <strong>{activeRequest.requestorName}</strong> ({activeRequest.requestorDepartment}) • เมื่อ {activeRequest.createdAt}
+                {activeRequest.requestorName} · {activeRequest.createdAt}
               </p>
             </div>
 

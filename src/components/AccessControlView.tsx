@@ -36,11 +36,8 @@ export const AccessControlView: React.FC = () => {
             <div className="w-8 h-8 rounded-lg bg-red-700 text-white flex items-center justify-center shadow-xs">
               <ShieldCheck className="w-4 h-4" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">ตั้งค่าสิทธิ์เข้าถึง</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">สิทธิ์เข้าถึง</h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            เลือกหน่วยงานเจ้าของแบบฟอร์ม แล้วกำหนดว่าหน่วยงานใดยื่นแบบฟอร์มนั้นได้
-          </p>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -154,7 +151,7 @@ export const AccessControlView: React.FC = () => {
               </div>
               <p className="mt-3 text-sm font-bold text-slate-800">หน่วยงานนี้ยังไม่มีแบบฟอร์ม</p>
               <p className="text-xs text-slate-500 mt-1">
-                เมื่อ {owner?.nameEn} เปิดใช้แบบฟอร์มแล้ว จะกำหนดสิทธิ์การใช้งานได้ที่นี่
+                ยังไม่มีแบบฟอร์ม
               </p>
             </div>
           ) : forms.length === 0 ? (

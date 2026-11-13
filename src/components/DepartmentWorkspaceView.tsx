@@ -105,12 +105,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {deptForms.length > 0 ? (
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มฝ่าย {deptInfo.nameEn}</h3>
-              <p className="text-xs text-slate-500">
-                ทั้งหมด {deptForms.length} แบบฟอร์ม — เปิดใช้ได้ตามสิทธิ์ของหน่วยงานคุณ
-              </p>
-            </div>
+            <h3 className="text-sm font-bold text-slate-900">แบบฟอร์ม</h3>
             {canCreate && createButton}
           </div>
 
@@ -130,23 +125,13 @@ export const DepartmentWorkspaceView: React.FC = () => {
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-mono text-slate-400">{form.menuCode}</span>
-                      {hasAccess ? (
-                        <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
-                          พร้อมให้บริการ
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Lock className="w-3 h-3" /> จำกัดสิทธิ์
-                        </span>
-                      )}
-                    </div>
-
-                    <h4 className="text-sm font-bold text-slate-800">{form.menuName}</h4>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                      {form.description || 'คลิกเพื่อเปิดแบบฟอร์มคำขอและเริ่มขั้นตอนการอนุมัติอัตโนมัติ'}
-                    </p>
+                    <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      {!hasAccess && <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+                      {form.menuName}
+                    </h4>
+                    {form.description && (
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{form.description}</p>
+                    )}
                   </div>
 
                   <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
@@ -168,18 +153,16 @@ export const DepartmentWorkspaceView: React.FC = () => {
                         }}
                         className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1 cursor-pointer"
                       >
-                        เปิดกรอกแบบฟอร์ม →
+                        กรอกแบบฟอร์ม →
                       </button>
                     ) : !canAccessTab('access_control') ? (
-                      <span className="text-[11px] text-slate-400">
-                        หน่วยงานของคุณยังไม่ได้รับสิทธิ์ใช้แบบฟอร์มนี้
-                      </span>
+                      <span className="text-[11px] text-slate-400">ไม่มีสิทธิ์</span>
                     ) : (
                       <button
                         onClick={() => setActiveTab('access_control')}
                         className="text-[11px] text-slate-400 hover:text-red-600 flex items-center gap-1 cursor-pointer"
                       >
-                        ดูการตั้งค่าสิทธิ์ (RBAC) →
+                        ตั้งค่าสิทธิ์ →
                       </button>
                     )}
                     {canEditForm(form) && (
@@ -201,23 +184,13 @@ export const DepartmentWorkspaceView: React.FC = () => {
       ) : (
         /* Empty state: no forms yet */
         <div>
-          <div className="mb-3">
-            <h3 className="text-sm font-bold text-slate-900">แบบฟอร์มฝ่าย {deptInfo.nameEn}</h3>
-            <p className="text-xs text-slate-500">หน่วยงานนี้ยังไม่มีแบบฟอร์ม</p>
-          </div>
+          <h3 className="text-sm font-bold text-slate-900 mb-3">แบบฟอร์ม</h3>
 
           <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-10 text-center space-y-3">
             <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
               <FolderPlus className="w-6 h-6" />
             </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-800">ยังไม่มีแบบฟอร์มในหน่วยงานนี้</h4>
-              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-                {canCreate
-                  ? `สร้างแบบฟอร์มของ ${deptInfo.nameEn} ได้เอง กำหนดช่องข้อมูล ผู้อนุมัติ และหน่วยงานที่ยื่นได้`
-                  : `เมื่อ ${deptInfo.nameEn} สร้างแบบฟอร์มแล้ว จะแสดงที่นี่`}
-              </p>
-            </div>
+            <p className="text-sm text-slate-400">ยังไม่มีแบบฟอร์ม</p>
             {canCreate && <div className="pt-2 flex justify-center">{createButton}</div>}
           </div>
         </div>
@@ -225,7 +198,8 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {/* Recent Requests for this Department */}
       <div>
         <h3 className="text-sm font-bold text-slate-900 mb-3">
-          {seesAllDeptRequests ? 'คำขอในหน่วยงาน' : 'คำขอของฉันในหน่วยงาน'} {deptInfo.nameEn} ({deptRequests.length})
+          {seesAllDeptRequests ? 'คำร้อง' : 'คำร้องของฉัน'}{' '}
+          <span className="text-slate-400 font-normal">{deptRequests.length}</span>
         </h3>
         {deptRequests.length > 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-xs">
@@ -248,7 +222,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
                     <span className="basis-full sm:basis-auto text-xs font-bold text-slate-800">{req.title}</span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    ผู้ยื่น: {req.requestorName} • วันที่: {req.createdAt}
+                    {req.requestorName} · {req.createdAt.split(' ')[0]}
                   </p>
                 </div>
 
@@ -277,7 +251,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
           </div>
         ) : (
           <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center text-xs text-slate-400">
-            {seesAllDeptRequests ? 'ยังไม่มีรายการคำขอในหน่วยงานนี้' : 'คุณยังไม่มีคำขอในหน่วยงานนี้'}
+            ยังไม่มีคำร้อง
           </div>
         )}
       </div>
