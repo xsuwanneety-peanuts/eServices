@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import {
   DepartmentId,
   DepartmentInfo,
@@ -24,6 +24,9 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
+import { isArray, isString, usePersistentState } from '../utils/persistentState';
+import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
+import { useAuth } from '../components/AuthGate';
 
 const ADMIN_TABS = ['access_control', 'workflow_builder', 'employee_directory'];
 
@@ -77,11 +80,21 @@ const INITIAL_NOTIFICATIONS: ActionEmailNotification[] = INITIAL_REQUESTS_RESOLV
 
 const isAdminRole = (user: UserPersona) => user.role === 'admin' || user.role === 'director';
 
-// Who may open each screen. System-management screens are for directors/admins
-// and for everyone in the IT team.
-const canUserAccessTab = (user: UserPersona, tab: string): boolean => {
-  if (!ADMIN_TABS.includes(tab)) return true;
-  return isAdminRole(user) || user.departmentId === 'it';
+// Who may open each screen. System-management screens need an individual admin sign-in;
+// the shared staff account cannot open them (and firestore.rules blocks its writes there).
+const canUserAccessTab = (isAdminLogin: boolean, tab: string): boolean =>
+  !ADMIN_TABS.includes(tab) || isAdminLogin;
+
+// Stand-in while the employee list is still loading, so derived values never see undefined
+const NO_USER: UserPersona = {
+  id: '',
+  name: '',
+  email: '',
+  departmentId: 'it',
+  departmentName: '',
+  position: '',
+  role: 'employee',
+  avatar: '',
 };
 
 /** A progress update on one of the current user's own requests. */
@@ -109,6 +122,9 @@ interface AppContextType {
   employees: UserPersona[];
   addEmployee: (employee: Omit<UserPersona, 'id' | 'avatar' | 'departmentName'>) => void;
   updateEmployee: (id: string, patch: Partial<Omit<UserPersona, 'id'>>) => void;
+
+  /** True once the shared data has loaded from Firestore. */
+  dataReady: boolean;
 
   // Navigation
   activeTab: string;
@@ -197,30 +213,75 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [employees, setEmployees] = useState<UserPersona[]>(USER_PERSONAS);
-  const [currentUserId, setCurrentUserId] = useState<string>(USER_PERSONAS[0].id); // Default to the first IT team member
-  const currentUser = employees.find(e => e.id === currentUserId) ?? employees[0];
+  const { isAdminLogin } = useAuth();
+
+  // Write failures (e.g. the staff account editing admin-only data) are reported, and the
+  // Firestore listener puts the shared data back the way it was
+  const handleWriteError = (error: unknown) => {
+    const code = (error as { code?: string })?.code;
+    showToast(
+      code === 'permission-denied'
+        ? 'บัญชีนี้ไม่มีสิทธิ์แก้ไขข้อมูลส่วนนี้'
+        : 'บันทึกข้อมูลไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่',
+      'warning'
+    );
+  };
+
+  // Shared through Firestore: every device sees the same data
+  const [employees, setEmployees, employeesLoaded] = useFirestoreCollection<UserPersona>('employees', handleWriteError);
+
+  // Kept per device: who this browser is acting as, and which updates it has already seen
+  const [currentUserId, setCurrentUserId] = usePersistentState<string>(
+    'currentUserId',
+    USER_PERSONAS[0].id, // Default to the first IT team member
+    isString
+  );
+  const currentUser = employees.find(e => e.id === currentUserId) ?? employees[0] ?? NO_USER;
   const [activeTab, setActiveTab] = useState<string>('my_workspace');
-  const [seenStatusUpdateKeys, setSeenStatusUpdateKeys] = useState<string[]>([]);
+  const [seenStatusUpdateKeys, setSeenStatusUpdateKeys] = usePersistentState<string[]>(
+    'seenStatusUpdates',
+    [],
+    isArray
+  );
 
   // Switching persona: leave system-management screens the new user may not open
   const setCurrentUser = (user: UserPersona) => {
     setCurrentUserId(user.id);
-    if (!canUserAccessTab(user, activeTab)) {
-      setActiveTab('my_workspace');
-    }
   };
   const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
 
-  const [menuPermissions, setMenuPermissions] = useState<MenuItemPermission[]>(INITIAL_MENU_PERMISSIONS);
-  const [workflows, setWorkflows] = useState<WorkflowDefinition[]>(INITIAL_WORKFLOWS);
+  const [menuPermissions, setMenuPermissions, permissionsLoaded] = useFirestoreCollection<MenuItemPermission>(
+    'menuPermissions',
+    handleWriteError
+  );
+  const [workflows, setWorkflows, workflowsLoaded] = useFirestoreCollection<WorkflowDefinition>(
+    'workflows',
+    handleWriteError
+  );
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>(INITIAL_WORKFLOWS[0].id);
 
-  const [requests, setRequests] = useState<DocumentRequest[]>(INITIAL_REQUESTS_RESOLVED);
+  const [requests, setRequests, requestsLoaded] = useFirestoreCollection<DocumentRequest>('requests', handleWriteError);
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
 
-  const [emailNotifications, setEmailNotifications] = useState<ActionEmailNotification[]>(INITIAL_NOTIFICATIONS);
+  const [emailNotifications, setEmailNotifications, notificationsLoaded] =
+    useFirestoreCollection<ActionEmailNotification>('notifications', handleWriteError);
+
+  const dataReady =
+    employeesLoaded && permissionsLoaded && workflowsLoaded && requestsLoaded && notificationsLoaded;
+
+  // A brand-new Firebase project starts empty: the first admin sign-in fills it with the
+  // starting data, once (a marker document prevents re-seeding after data is cleaned up)
+  useEffect(() => {
+    if (!isAdminLogin) return;
+    seedCollectionsOnce({
+      employees: USER_PERSONAS,
+      menuPermissions: INITIAL_MENU_PERMISSIONS,
+      workflows: INITIAL_WORKFLOWS,
+      requests: INITIAL_REQUESTS_RESOLVED,
+      notifications: INITIAL_NOTIFICATIONS,
+    }).catch(handleWriteError);
+  }, [isAdminLogin]);
 
   // ---- Employee Directory ----
   const departmentLabel = (deptId: DepartmentId) => {
@@ -726,6 +787,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         employees,
         addEmployee,
         updateEmployee,
+        dataReady,
         activeTab,
         setActiveTab,
         activeDeptFilter,
@@ -768,7 +830,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast,
         showToast,
         isSystemAdmin,
-        canAccessTab: (tab: string) => canUserAccessTab(currentUser, tab),
+        canAccessTab: (tab: string) => canUserAccessTab(isAdminLogin, tab),
         canApprove,
         canActOnRequest,
         canViewRequest,

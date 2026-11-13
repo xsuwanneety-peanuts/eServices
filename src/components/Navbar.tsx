@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from './AuthGate';
 import { DepartmentId } from '../types';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { DEPT_ICONS } from '../utils/departmentIcons';
@@ -15,6 +16,7 @@ import {
   Home,
   Laptop,
   BookOpen,
+  LogOut,
   ShieldCheck,
   GitBranch,
   Contact,
@@ -62,6 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
     setActiveArticleId,
   } = useApp();
 
+  const { user, isAdminLogin, signOutUser } = useAuth();
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [mobileSection, setMobileSection] = useState<'dept' | 'admin' | null>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -433,6 +436,21 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                       </button>
                     );
                   })}
+                </div>
+
+                {/* Which account this device is signed in with, and sign out */}
+                <div className="px-3.5 pt-2 mt-1 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-400 truncate">
+                    {isAdminLogin ? `ผู้ดูแลระบบ: ${user.email}` : `เข้าสู่ระบบ: ${user.email}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={signOutUser}
+                    className="inline-flex items-center gap-1 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-red-700 cursor-pointer shrink-0"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    ออกจากระบบ
+                  </button>
                 </div>
               </div>
             )}

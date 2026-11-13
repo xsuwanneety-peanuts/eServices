@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// Paste this into Firebase console → Firestore Database → Rules, then press Publish.
+//
+// - Nobody can read or write anything without signing in.
+// - Everyone signed in can read all data and
+//   create / update requests and their notifications.
+// - Only the admin accounts listed in isAdmin() can change employees, form
+//   permissions, and approval workflows, or delete anything.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Admin sign-in emails (accounts in Firebase Authentication). Keep in sync with
+    // ADMIN_EMAILS in src/lib/firebase.ts.
+    function isAdmin() {
+      return signedIn() && request.auth.token.email in [
+        'it_1@jmi.local'
+      ];
+    }
+
+    match /requests/{id} {
+      allow read, create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /notifications/{id} {
+      allow read, create, update: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /employees/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /menuPermissions/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /workflows/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Marker that the starting data has been loaded
+    match /meta/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
