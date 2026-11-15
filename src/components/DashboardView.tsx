@@ -257,7 +257,7 @@ export const DashboardView: React.FC = () => {
                         setIsPrintModalOpen(true);
                       }}
                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                      title="พิมพ์ใบสำคัญอิเล็กทรอนิกส์"
+                      title="ใบคำร้องอิเล็กทรอนิกส์ (PDF)"
                     >
                       <Printer className="w-4 h-4" />
                     </button>
