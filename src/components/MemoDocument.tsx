@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { DocumentRequest } from '../types';
 import { MEMO_CLOSING_LINE, shortThaiDate } from '../utils/memo';
+import companyLogo from '../assets/company-logo.png';
 
 // A4 at 96 dpi, the same width the e-Slip PDF is drawn at
 const A4_WIDTH_PX = 794;
@@ -11,11 +12,9 @@ interface MemoDocumentProps {
   forExport?: boolean;
 }
 
-/** Company logo at the top of the memo. Replace with the real logo image when it is available. */
+/** Company logo at the top of the memo. */
 const MemoLogo: React.FC = () => (
-  <div className="mx-auto w-20 h-20 rounded-full bg-slate-900 text-red-500 border-4 border-red-600 flex items-center justify-center text-sm font-black tracking-widest">
-    LOGO
-  </div>
+  <img src={companyLogo} alt="Jaymart Insurance" className="mx-auto w-24 h-24 object-contain" />
 );
 
 /** The internal memorandum (บันทึกภายใน) as it is printed: shown in the window and drawn into the PDF. */
