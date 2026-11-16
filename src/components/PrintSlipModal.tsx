@@ -2,6 +2,7 @@ import React, { forwardRef, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DocumentRequest } from '../types';
 import { MemoDocument } from './MemoDocument';
+import { ItRequestDocument } from './ItRequestDocument';
 import {
   X,
   FileDown,
@@ -195,7 +196,8 @@ export const PrintSlipModal: React.FC = () => {
 
   // A memo is printed in its own layout and named after its memo number
   const isMemo = !!activeRequest.memo;
-  const Paper = isMemo ? MemoDocument : SlipDocument;
+  const isItRequest = !!activeRequest.itRequest;
+  const Paper = isMemo ? MemoDocument : isItRequest ? ItRequestDocument : SlipDocument;
   const fileName = isMemo
     ? `Memo-${activeRequest.memo!.docNo.replace('/', '-')}.pdf`
     : `${activeRequest.code}.pdf`;
@@ -222,7 +224,11 @@ export const PrintSlipModal: React.FC = () => {
           <div className="flex items-center space-x-2">
             <FileCheck2 className="w-5 h-5 text-blue-400" />
             <h3 className="text-sm font-bold">
-              {isMemo ? 'บันทึกภายใน (Memorandum)' : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
+              {isMemo
+                ? 'บันทึกภายใน (Memorandum)'
+                : isItRequest
+                  ? 'IT & Request Form'
+                  : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
             </h3>
           </div>
           <div className="flex items-center space-x-2">

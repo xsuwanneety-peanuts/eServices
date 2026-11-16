@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { ItStepPanel } from './ItStepPanel';
 import {
   X,
   CheckCircle2,
@@ -57,7 +58,8 @@ export const RequestDetailModal: React.FC = () => {
 
   const startEditing = () => {
     setEditTitle(activeRequest.title);
-    setEditDetails(activeRequest.details);
+    // On an IT & Request Form the box edits the symptom, the part the requester wrote freely
+    setEditDetails(activeRequest.itRequest ? activeRequest.itRequest.symptom : activeRequest.details);
     if (activeRequest.memo) {
       const { to, background, summary } = activeRequest.memo;
       setEditMemo({ to, background, summary });
@@ -355,7 +357,10 @@ export const RequestDetailModal: React.FC = () => {
           </div>
 
           {/* Quick Action Area — shown only to the approver of the current step */}
-          {isPending && canDecide && (
+          {isPending && canDecide && activeRequest.itRequest && currentStep?.task && !isRejecting && (
+            <ItStepPanel request={activeRequest} onReturn={() => setIsRejecting(true)} />
+          )}
+          {isPending && canDecide && !(activeRequest.itRequest && currentStep?.task && !isRejecting) && (
             <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50/30 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-red-950 flex items-center gap-1.5">
@@ -426,7 +431,8 @@ export const RequestDetailModal: React.FC = () => {
 
             {isEditing ? (
               <div className="space-y-2.5">
-                <div>
+                {/* An IT & Request Form names itself from what was ticked and the symptom */}
+                <div className={activeRequest.itRequest ? 'hidden' : undefined}>
                   <label htmlFor="rs-title" className="block font-semibold text-slate-700 mb-1">
                     หัวเรื่อง
                   </label>
@@ -473,7 +479,7 @@ export const RequestDetailModal: React.FC = () => {
                 ) : (
                   <div>
                     <label htmlFor="rs-details" className="block font-semibold text-slate-700 mb-1">
-                      รายละเอียด
+                      {activeRequest.itRequest ? 'สาเหตุ / อาการ' : 'รายละเอียด'}
                     </label>
                     <textarea
                       id="rs-details"

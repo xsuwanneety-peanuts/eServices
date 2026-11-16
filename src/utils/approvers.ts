@@ -6,6 +6,7 @@ export const APPROVER_TYPE_LABELS: Record<StepApproverType, string> = {
   reports_to_2: 'ผู้บังคับบัญชาลำดับถัดไป (Report to ของหัวหน้า)',
   employee: 'พนักงานที่ระบุ',
   requester_picks: 'ผู้ยื่นเลือกผู้อนุมัติเองตอนกรอกแบบฟอร์ม',
+  department: 'ทุกคนในหน่วยงานที่ระบุ',
 };
 
 // "ผู้บริหาร" sees every request and may approve any step. It is not the same as being a
@@ -43,6 +44,9 @@ export const resolveStepApprover = (
       return findEmployee(employees, step.approverEmployeeId);
     case 'requester_picks':
       // Chosen on the form at submission, so there is nobody to look up beforehand
+      return undefined;
+    case 'department':
+      // Open to the whole department rather than one person
       return undefined;
   }
 };

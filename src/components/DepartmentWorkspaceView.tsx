@@ -4,6 +4,7 @@ import { DepartmentId, ItRequestCategory, MenuItemPermission } from '../types';
 import { FormBuilderModal } from './FormBuilderModal';
 import { CustomRequestModal } from './CustomRequestModal';
 import { MemoRequestModal } from './MemoRequestModal';
+import { ItRequestModal } from './ItRequestModal';
 import {
   FileText,
   Lock,
@@ -263,6 +264,8 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {fillingForm &&
         (fillingForm.template === 'memo' ? (
           <MemoRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />
+        ) : fillingForm.template === 'it_request' ? (
+          <ItRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />
         ) : (
           <CustomRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />
         ))}

@@ -49,6 +49,10 @@ export const WorkflowBuilderView: React.FC = () => {
       const person = employees.find(e => e.id === step.approverEmployeeId);
       return person ? `${person.name} (${person.position})` : 'ยังไม่ได้เลือกพนักงาน';
     }
+    if (step.approverType === 'department') {
+      const dept = departments.find(d => d.id === step.approverDepartmentId);
+      return `ทุกคนใน ${dept?.nameEn ?? 'หน่วยงานที่ระบุ'}`;
+    }
     return APPROVER_TYPE_LABELS[step.approverType];
   };
 
@@ -292,7 +296,10 @@ export const WorkflowBuilderView: React.FC = () => {
                               }}
                               className={selectClass}
                             >
-                              {approverTypeOptions.map(type => (
+                              {(approverTypeOptions.includes(step.approverType)
+                                ? approverTypeOptions
+                                : [step.approverType, ...approverTypeOptions]
+                              ).map(type => (
                                 <option key={type} value={type}>
                                   {APPROVER_TYPE_LABELS[type]}
                                 </option>

@@ -17,6 +17,7 @@ import {
   KnowledgeArticle,
   KbAttachment,
   MemoData,
+  ItRequestData,
 } from '../types';
 import {
   MEMO_FORM,
@@ -27,6 +28,14 @@ import {
   nextMemoNo,
   thaiDate,
 } from '../utils/memo';
+import {
+  IT_REQUEST_FORM,
+  IT_REQUEST_SEED_MARKER,
+  buildItRequestWorkflow,
+  itRequestAnswers,
+  itRequestDetails,
+  itRequestTitle,
+} from '../utils/itRequest';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { deleteKbFiles, uploadKbFile } from '../utils/kbFiles';
 import {
@@ -53,8 +62,24 @@ const approverFields = (
   step: ApprovalStepConfig | undefined,
   requestorId: string,
   employees: UserPersona[]
-): Pick<ApprovalAuditEntry, 'approverName' | 'approverRole' | 'approverEmail'> => {
+): Pick<ApprovalAuditEntry, 'approverName' | 'approverRole' | 'approverEmail' | 'approverDepartmentId' | 'task'> => {
+  // A step open to a whole department has no single person until someone picks it up
+  if (step?.approverType === 'department' && step.approverDepartmentId) {
+    const dept = CORPORATE_DEPARTMENTS.find(d => d.id === step.approverDepartmentId);
+    return {
+      approverName: `ทีม ${dept?.nameEn ?? step.approverDepartmentId}`,
+      approverRole: step.title,
+      approverEmail: '',
+      approverDepartmentId: step.approverDepartmentId,
+      task: step.task,
+    };
+  }
   const approver = step ? resolveStepApprover(step, requestorId, employees) : undefined;
+  if (step?.task) {
+    return approver
+      ? { approverName: approver.name, approverRole: approver.position, approverEmail: approver.email, task: step.task }
+      : { approverName: UNASSIGNED_APPROVER, approverRole: step.title, approverEmail: '', task: step.task };
+  }
   return approver
     ? { approverName: approver.name, approverRole: approver.position, approverEmail: approver.email }
     : { approverName: UNASSIGNED_APPROVER, approverRole: step?.title ?? '', approverEmail: '' };
@@ -207,7 +232,12 @@ interface AppContextType {
    * approver is picked on the form ('requester_picks').
    */
   createNewRequest: (newReq: Partial<DocumentRequest>, pickedApprovers?: Record<string, string>) => DocumentRequest;
-  approveRequest: (requestId: string, comment?: string) => void;
+  /** `record` is what the person acting filled in, for steps that record something (IT work, acceptance). */
+  approveRequest: (
+    requestId: string,
+    comment?: string,
+    record?: Pick<ItRequestData, 'work'> | Pick<ItRequestData, 'acceptance'>
+  ) => void;
   rejectRequest: (requestId: string, reason: string) => void;
   /** Requester fixes a returned request and sends it back to the step that returned it. */
   resubmitRequest: (
@@ -360,6 +390,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
       .catch(handleWriteError);
   }, [isAdminLogin]);
+
+  // The IT & Request Form waits for the directory, so its flow can point at the IT director
+  useEffect(() => {
+    if (!isAdminLogin || !employeesLoaded) return;
+    seedCollectionsOnce(
+      { menuPermissions: [IT_REQUEST_FORM], workflows: [buildItRequestWorkflow(employees)] },
+      IT_REQUEST_SEED_MARKER,
+      1100
+    ).catch(handleWriteError);
+  }, [isAdminLogin, employeesLoaded]);
 
   // ---- Employee Directory ----
   const departmentLabel = (deptId: DepartmentId) => {
@@ -724,6 +764,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       docNo: nextMemoNo(currentUser.departmentId, requests, now),
     };
 
+    const itRequest = newReq.itRequest;
+
     // Generate initial audit entries from workflow steps
     const auditSteps: ApprovalAuditEntry[] = matchedWf.steps.map((s, idx) => {
       if (idx === 0) {
@@ -757,7 +799,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const doc: DocumentRequest = {
       id: `req-${Date.now()}`,
       code: requestCode,
-      title: newReq.title || 'คำร้องขอใช้บริการทั่วไป',
+      title: itRequest ? itRequestTitle(itRequest) : newReq.title || 'คำร้องขอใช้บริการทั่วไป',
       category: newReq.category || matchedWf.formTitle,
       departmentId: newReq.departmentId || 'it',
       itilCategory: newReq.itilCategory || 'service_request',
@@ -774,11 +816,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       impact: newReq.impact,
       priority: newReq.priority,
       assignedTo: newReq.assignedTo,
-      details: memo ? memoDetails(memo) : newReq.details || '',
+      details: memo ? memoDetails(memo) : itRequest ? itRequestDetails(itRequest) : newReq.details || '',
       attachments: newReq.attachments || [],
       formId: newReq.formId,
-      answers: memo ? memoAnswers(memo) : newReq.answers,
+      answers: memo ? memoAnswers(memo) : itRequest ? itRequestAnswers(itRequest) : newReq.answers,
       memo,
+      itRequest,
       workflowId: matchedWf.id,
       currentStepIndex: 1, // Next approver
       steps: auditSteps,
@@ -821,7 +864,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Approve a request
-  const approveRequest = (requestId: string, comment: string = 'เห็นชอบอนุมัติตามระเบียบ') => {
+  const approveRequest = (
+    requestId: string,
+    comment: string = 'เห็นชอบอนุมัติตามระเบียบ',
+    record?: Pick<ItRequestData, 'work'> | Pick<ItRequestData, 'acceptance'>
+  ) => {
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -882,8 +929,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setEmailNotifications(n => [newNotif, ...n]);
         }
 
+        // What the person acting recorded (IT work, acceptance) is kept with the form's data
+        const itRequest = req.itRequest && record ? { ...req.itRequest, ...record } : req.itRequest;
+
         return {
           ...req,
+          ...(itRequest && record
+            ? { itRequest, details: itRequestDetails(itRequest), answers: itRequestAnswers(itRequest) }
+            : {}),
           status: newStatus,
           currentStepIndex: isFinalStep ? currentStep : currentStep + 1,
           updatedAt: dateStr,
@@ -892,7 +945,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    showToast(`ประทับตราอนุมัติเอกสารเรียบร้อยแล้ว`, 'success');
+    showToast(record ? 'บันทึกและส่งต่อเรียบร้อยแล้ว' : `ประทับตราอนุมัติเอกสารเรียบร้อยแล้ว`, 'success');
   };
 
   // Reject / Return request
@@ -955,13 +1008,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (r.id !== requestId) return r;
         // A memo is edited field by field; its number and date stay as first issued
         const memo = r.memo && input.memo ? { ...r.memo, ...input.memo } : r.memo;
+        // On an IT & Request Form the details box edits the symptom; the rest stays as filled in
+        const itRequest = r.itRequest && { ...r.itRequest, symptom: input.details };
         return {
           ...r,
-          title: input.title,
+          title: itRequest ? itRequestTitle(itRequest) : input.title,
           memo,
-          details: memo ? memoDetails(memo) : input.details,
+          itRequest,
+          details: memo ? memoDetails(memo) : itRequest ? itRequestDetails(itRequest) : input.details,
           // Answers of a built form are shown from `details`; drop the old copy once it is edited
-          answers: memo ? memoAnswers(memo) : detailsChanged ? undefined : r.answers,
+          answers: memo
+            ? memoAnswers(memo)
+            : itRequest
+              ? itRequestAnswers(itRequest)
+              : detailsChanged
+                ? undefined
+                : r.answers,
           status: 'in_review' as const,
           currentStepIndex: returnedAt,
           updatedAt: dateStr,
@@ -1035,7 +1097,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (request.status !== 'in_review' && request.status !== 'pending') return false;
     const step = request.steps[request.currentStepIndex];
     if (!step || step.status !== 'pending') return false;
-    return isMine(step.approverEmail);
+    if (isMine(step.approverEmail)) return true;
+    // A step open to a whole department belongs to any of its members
+    return isLinkedAccount && !!step.approverDepartmentId && step.approverDepartmentId === currentUser.departmentId;
   };
 
   const canViewRequest = (request: DocumentRequest): boolean => {
