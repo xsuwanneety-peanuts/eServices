@@ -4,6 +4,7 @@ import { DepartmentId, KbAttachment, KnowledgeArticle } from '../types';
 import { DEPT_ICONS } from '../utils/departmentIcons';
 import { downloadKbFile, formatFileSize } from '../utils/kbFiles';
 import { ArticleEditorModal } from './ArticleEditorModal';
+import { RichTextView } from './RichText';
 import {
   Download,
   Paperclip,
@@ -329,7 +330,11 @@ const ArticleDetail: React.FC<{ article: KnowledgeArticle; onBack: () => void; o
             </span>
           </p>
 
-          {paragraphs.length > 0 && (
+          {article.content ? (
+            <div className="mt-6">
+              <RichTextView content={article.content} />
+            </div>
+          ) : paragraphs.length > 0 && (
             <div className="mt-6 space-y-3">
               {paragraphs.map((text, idx) => (
                 <p key={idx} className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">

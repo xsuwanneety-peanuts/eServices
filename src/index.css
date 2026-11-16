@@ -21,3 +21,40 @@
 .animate-pulse-subtle {
   animation: pulseSubtle 2.5s infinite ease-in-out;
 }
+
+/* Formatted Knowledge Base content (rich text editor and article page) */
+.kb-content {
+  color: var(--color-slate-700);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.kb-content > * + * { margin-top: 0.75em; }
+.kb-content h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--color-slate-100);
+  margin-top: 1.5em;
+}
+.kb-content h3 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-slate-900);
+  margin-top: 1.25em;
+}
+.kb-content > :first-child { margin-top: 0; }
+.kb-content ul { list-style: disc; padding-left: 1.5em; }
+.kb-content ol { list-style: decimal; padding-left: 1.5em; }
+.kb-content li + li { margin-top: 0.25em; }
+.kb-content li > p { margin: 0; }
+.kb-content strong { font-weight: 700; color: var(--color-slate-900); }
+.kb-content a { color: var(--color-red-700); text-decoration: underline; }
+.kb-content blockquote {
+  border-left: 3px solid var(--color-amber-400);
+  background: var(--color-amber-50);
+  color: var(--color-amber-900);
+  padding: 0.5em 0.85em;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+.kb-content hr { border: 0; border-top: 1px solid var(--color-slate-200); margin: 1.25em 0; }

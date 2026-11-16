@@ -1,3 +1,5 @@
+import type { JSONContent } from '@tiptap/react';
+
 export type DepartmentId =
   | 'compliance_legal' // Office of the President, Compliance & Legal (สำนักกรรมการผู้จัดการ - 6 HC)
   | 'new_venture'      // New Venture, Business Dev & Partnership (New Venture & BD - 4 HC)
@@ -148,8 +150,10 @@ export interface KnowledgeArticle {
   sections: KnowledgeSection[];
   /** Optional shortcut to an e-Service form related to the article. */
   relatedForm?: { label: string; category: ItRequestCategory };
-  /** Plain-text content of an article written by an employee (paragraphs split by blank lines). */
+  /** Plain text of an article written by an employee, for search and reading time. */
   body?: string;
+  /** Formatted content of an article written by an employee (rich text editor JSON). */
+  content?: JSONContent;
   attachments?: KbAttachment[];
   /** Sign-in email of the employee who wrote it; built-in sample articles have none. */
   createdBy?: string;

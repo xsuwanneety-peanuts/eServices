@@ -121,7 +121,9 @@ export interface KnowledgeArticleInput {
   summary: string;
   departmentId: DepartmentId;
   tags: string[];
+  /** Plain text of the content. */
   body: string;
+  content: KnowledgeArticle['content'];
   /** Attachments already saved that the author kept. */
   keptAttachments: KbAttachment[];
   newFiles: File[];
@@ -453,6 +455,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       readMinutes: Math.max(1, Math.round(body.length / 500)),
       sections: [],
       body,
+      content: input.content,
       attachments: [...input.keptAttachments, ...uploaded],
       createdBy: existing?.createdBy ?? signedInEmail,
       authorName: existing?.authorName ?? currentUser.name,

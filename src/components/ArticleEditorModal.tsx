@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { DepartmentId, KbAttachment, KnowledgeArticle } from '../types';
 import { MAX_FILES_PER_ARTICLE, MAX_FILE_BYTES, formatFileSize } from '../utils/kbFiles';
 import { Paperclip, Trash2, X } from 'lucide-react';
+import type { JSONContent } from '@tiptap/react';
+import { RichTextEditor } from './RichText';
 
 /** Write or edit a Knowledge Base article, with attached files. */
 export const ArticleEditorModal: React.FC<{
@@ -18,6 +20,7 @@ export const ArticleEditorModal: React.FC<{
   const [departmentId, setDepartmentId] = useState<DepartmentId>(article?.departmentId ?? currentUser.departmentId);
   const [tagsText, setTagsText] = useState(article?.tags.join(', ') ?? '');
   const [body, setBody] = useState(article?.body ?? '');
+  const [content, setContent] = useState<JSONContent | undefined>(article?.content);
   const [kept, setKept] = useState<KbAttachment[]>(article?.attachments ?? []);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
@@ -52,6 +55,7 @@ export const ArticleEditorModal: React.FC<{
         departmentId,
         tags: tagsText.split(',').map(t => t.trim()).filter(Boolean),
         body,
+        content,
         keptAttachments: kept,
         newFiles,
       },
@@ -169,16 +173,17 @@ export const ArticleEditorModal: React.FC<{
           </div>
 
           <div>
-            <label htmlFor="kb-body" className="block font-semibold text-slate-700 mb-1">
+            <span id="kb-body-label" className="block font-semibold text-slate-700 mb-1">
               เนื้อหา
-            </label>
-            <textarea
-              id="kb-body"
-              rows={10}
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              placeholder="เว้นบรรทัดว่างเพื่อขึ้นย่อหน้าใหม่"
-              className={`${inputClass} leading-relaxed`}
+            </span>
+            <RichTextEditor
+              initialContent={article?.content}
+              initialText={article?.body}
+              labelledBy="kb-body-label"
+              onChange={(json, text) => {
+                setContent(json);
+                setBody(text);
+              }}
             />
           </div>
 
