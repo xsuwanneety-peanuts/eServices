@@ -52,8 +52,9 @@ export interface UserPersona {
  * - reports_to: the requester's line manager
  * - reports_to_2: the line manager's own manager
  * - employee: one specific employee
+ * - requester_picks: whoever the requester chooses when filling in the form
  */
-export type StepApproverType = 'requester' | 'reports_to' | 'reports_to_2' | 'employee';
+export type StepApproverType = 'requester' | 'reports_to' | 'reports_to_2' | 'employee' | 'requester_picks';
 
 export type RequestStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'returned';
 
@@ -128,6 +129,22 @@ export interface DocumentRequest {
   /** Set when the request was made with a department-built form. */
   formId?: string;
   answers?: { label: string; value: string }[];
+  /** Set when the request is an internal memorandum (printed in the memo layout). */
+  memo?: MemoData;
+}
+
+/** Content of an internal memorandum (บันทึกภายใน). The subject is the request title. */
+export interface MemoData {
+  /** Running number per department and Buddhist year, e.g. IT015/69. */
+  docNo: string;
+  /** Addressee (เรียน). */
+  to: string;
+  /** Memo date as dd/mm/yyyy in the Buddhist era. */
+  date: string;
+  /** สรุปความเป็นมา */
+  background: string;
+  /** สรุปสาระสำคัญ */
+  summary: string;
 }
 
 /** One block of a knowledge article: a heading with paragraphs, numbered steps, and/or a tip. */
@@ -192,6 +209,8 @@ export interface MenuItemPermission {
   description?: string;
   fields?: FormFieldDefinition[];
   workflowId?: string;
+  /** A built-in form with its own screen and print layout (not made in the form builder). */
+  template?: 'memo';
   /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */
   createdBy?: string;
   allowedDepartments: Record<DepartmentId, boolean>;

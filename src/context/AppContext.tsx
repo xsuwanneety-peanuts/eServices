@@ -16,7 +16,17 @@ import {
   PriorityLevel,
   KnowledgeArticle,
   KbAttachment,
+  MemoData,
 } from '../types';
+import {
+  MEMO_FORM,
+  MEMO_SEED_MARKER,
+  MEMO_WORKFLOW,
+  memoAnswers,
+  memoDetails,
+  nextMemoNo,
+  thaiDate,
+} from '../utils/memo';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { deleteKbFiles, uploadKbFile } from '../utils/kbFiles';
 import {
@@ -192,11 +202,18 @@ interface AppContextType {
 
   // Requests
   requests: DocumentRequest[];
-  createNewRequest: (newReq: Partial<DocumentRequest>) => DocumentRequest;
+  /**
+   * `pickedApprovers` maps a step id to the employee the requester chose, for steps whose
+   * approver is picked on the form ('requester_picks').
+   */
+  createNewRequest: (newReq: Partial<DocumentRequest>, pickedApprovers?: Record<string, string>) => DocumentRequest;
   approveRequest: (requestId: string, comment?: string) => void;
   rejectRequest: (requestId: string, reason: string) => void;
   /** Requester fixes a returned request and sends it back to the step that returned it. */
-  resubmitRequest: (requestId: string, input: { title: string; details: string; note: string }) => void;
+  resubmitRequest: (
+    requestId: string,
+    input: { title: string; details: string; note: string; memo?: Pick<MemoData, 'to' | 'background' | 'summary'> }
+  ) => void;
   activeRequest: DocumentRequest | null;
   setActiveRequestId: (id: string | null) => void;
 
@@ -336,7 +353,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             menuPermissions: INITIAL_MENU_PERMISSIONS,
             workflows: INITIAL_WORKFLOWS,
           }
-    ).catch(handleWriteError);
+    )
+      // Built-in forms added after a project was first set up get their own one-time marker
+      .then(() =>
+        seedCollectionsOnce({ menuPermissions: [MEMO_FORM], workflows: [MEMO_WORKFLOW] }, MEMO_SEED_MARKER, 1000)
+      )
+      .catch(handleWriteError);
   }, [isAdminLogin]);
 
   // ---- Employee Directory ----
@@ -680,7 +702,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Create new request
-  const createNewRequest = (newReq: Partial<DocumentRequest>): DocumentRequest => {
+  const createNewRequest = (
+    newReq: Partial<DocumentRequest>,
+    pickedApprovers: Record<string, string> = {}
+  ): DocumentRequest => {
     const matchedWf = workflows.find(w => w.id === (newReq.workflowId || 'wf-procure')) || workflows[0];
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -692,6 +717,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return Number.isFinite(n) && n > max ? n : max;
     }, 0);
     const requestCode = `${yearPrefix}${String(lastNumber + 1).padStart(4, '0')}`;
+    // A memo gets its date and running number here, at the moment it is sent
+    const memo: MemoData | undefined = newReq.memo && {
+      ...newReq.memo,
+      date: thaiDate(now),
+      docNo: nextMemoNo(currentUser.departmentId, requests, now),
+    };
 
     // Generate initial audit entries from workflow steps
     const auditSteps: ApprovalAuditEntry[] = matchedWf.steps.map((s, idx) => {
@@ -708,11 +739,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           digitalSignatureHash: `DIGI-SIGN-CREATED-${Date.now()}-AUTH`,
         };
       }
-      // Approvers come from the Employee Directory, resolved for this requester at submission
+      // Approvers come from the Employee Directory, resolved for this requester at submission;
+      // a step whose approver the requester picks is treated as that specific employee
+      const picked = s.approverType === 'requester_picks' ? pickedApprovers[s.id] : undefined;
       return {
         stepIndex: idx,
         stepTitle: s.title,
-        ...approverFields(s, currentUser.id, employees),
+        ...approverFields(
+          picked ? { ...s, approverType: 'employee', approverEmployeeId: picked } : s,
+          currentUser.id,
+          employees
+        ),
         status: idx === 1 ? 'pending' : 'waiting',
       };
     });
@@ -737,10 +774,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       impact: newReq.impact,
       priority: newReq.priority,
       assignedTo: newReq.assignedTo,
-      details: newReq.details || '',
+      details: memo ? memoDetails(memo) : newReq.details || '',
       attachments: newReq.attachments || [],
       formId: newReq.formId,
-      answers: newReq.answers,
+      answers: memo ? memoAnswers(memo) : newReq.answers,
+      memo,
       workflowId: matchedWf.id,
       currentStepIndex: 1, // Next approver
       steps: auditSteps,
@@ -897,7 +935,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`ส่งคืน/ตีกลับเอกสารถึงผู้ยื่นคำร้องพร้อมระบุเหตุผลแล้ว`, 'warning');
   };
 
-  const resubmitRequest = (requestId: string, input: { title: string; details: string; note: string }) => {
+  const resubmitRequest = (
+    requestId: string,
+    input: { title: string; details: string; note: string; memo?: Pick<MemoData, 'to' | 'background' | 'summary'> }
+  ) => {
     const req = requests.find(r => r.id === requestId);
     if (!req || req.status !== 'returned') return;
     const returnedAt = req.steps.findIndex(s => s.status === 'rejected');
@@ -912,12 +953,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRequests(prev =>
       prev.map(r => {
         if (r.id !== requestId) return r;
+        // A memo is edited field by field; its number and date stay as first issued
+        const memo = r.memo && input.memo ? { ...r.memo, ...input.memo } : r.memo;
         return {
           ...r,
           title: input.title,
-          details: input.details,
+          memo,
+          details: memo ? memoDetails(memo) : input.details,
           // Answers of a built form are shown from `details`; drop the old copy once it is edited
-          answers: detailsChanged ? undefined : r.answers,
+          answers: memo ? memoAnswers(memo) : detailsChanged ? undefined : r.answers,
           status: 'in_review' as const,
           currentStepIndex: returnedAt,
           updatedAt: dateStr,

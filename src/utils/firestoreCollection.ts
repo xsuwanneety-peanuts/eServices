@@ -109,13 +109,20 @@ export const useFirestoreCollection = <T extends WithId>(name: string, onWriteEr
 /**
  * Fill an empty project with starting data, once. A marker document records that seeding
  * happened, so deleting items later never brings the samples back.
+ *
+ * Data added to existing projects later (e.g. a new built-in form) uses its own `markerId`,
+ * and a `startOrder` that lists it after what is already there.
  */
-export const seedCollectionsOnce = async (seeds: Record<string, WithId[]>): Promise<boolean> => {
-  const marker = doc(db, 'meta', 'seed');
+export const seedCollectionsOnce = async (
+  seeds: Record<string, WithId[]>,
+  markerId = 'seed',
+  startOrder = 0
+): Promise<boolean> => {
+  const marker = doc(db, 'meta', markerId);
   if ((await getDoc(marker)).exists()) return false;
   const batch = writeBatch(db);
   Object.entries(seeds).forEach(([name, items]) =>
-    items.forEach((item, index) => batch.set(doc(db, name, item.id), { ...item, _order: index }))
+    items.forEach((item, index) => batch.set(doc(db, name, item.id), { ...item, _order: startOrder + index }))
   );
   batch.set(marker, { seededAt: serverTimestamp() });
   await batch.commit();
