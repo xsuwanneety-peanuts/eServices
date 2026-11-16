@@ -1,9 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { DepartmentId, KnowledgeArticle } from '../types';
-import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
+import { DepartmentId, KbAttachment, KnowledgeArticle } from '../types';
 import { DEPT_ICONS } from '../utils/departmentIcons';
+import { downloadKbFile, formatFileSize } from '../utils/kbFiles';
+import { ArticleEditorModal } from './ArticleEditorModal';
 import {
+  Download,
+  Paperclip,
+  Pencil,
+  Plus,
+  User,
   ArrowLeft,
   ArrowRight,
   BookOpen,
@@ -21,6 +27,9 @@ const articleSearchText = (article: KnowledgeArticle): string =>
   [
     article.title,
     article.summary,
+    article.body ?? '',
+    article.authorName ?? '',
+    ...(article.attachments ?? []).map(a => a.name),
     ...article.tags,
     ...article.sections.flatMap(s => [s.heading, ...(s.paragraphs ?? []), ...(s.steps ?? []), s.tip ?? '']),
   ]
@@ -28,18 +37,71 @@ const articleSearchText = (article: KnowledgeArticle): string =>
     .toLowerCase();
 
 export const KnowledgeBaseView: React.FC = () => {
-  const { activeArticleId, setActiveArticleId } = useApp();
-  const article = KNOWLEDGE_ARTICLES.find(a => a.id === activeArticleId);
+  const { activeArticleId, setActiveArticleId, knowledgeArticles } = useApp();
+  const article = knowledgeArticles.find(a => a.id === activeArticleId);
+  // null: closed, 'new': writing a new article, otherwise the article being edited
+  const [editing, setEditing] = useState<KnowledgeArticle | 'new' | null>(null);
 
   // Start each article (and the list) at the top of the scrolling content area
   useEffect(() => {
     document.querySelector('main')?.scrollTo({ top: 0 });
   }, [activeArticleId]);
 
-  return article ? (
-    <ArticleDetail article={article} onBack={() => setActiveArticleId(null)} />
-  ) : (
-    <ArticleList onOpen={id => setActiveArticleId(id)} />
+  return (
+    <>
+      {article ? (
+        <ArticleDetail article={article} onBack={() => setActiveArticleId(null)} onEdit={() => setEditing(article)} />
+      ) : (
+        <ArticleList onOpen={id => setActiveArticleId(id)} onWrite={() => setEditing('new')} />
+      )}
+      {editing && (
+        <ArticleEditorModal
+          article={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={id => {
+            setEditing(null);
+            setActiveArticleId(id);
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+/** Attached files, each downloaded on click. */
+const AttachmentList: React.FC<{ attachments: KbAttachment[] }> = ({ attachments }) => {
+  const { showToast } = useApp();
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const open = async (a: KbAttachment) => {
+    setBusyId(a.id);
+    try {
+      await downloadKbFile(a);
+    } catch {
+      showToast('ดาวน์โหลดไฟล์ไม่สำเร็จ', 'warning');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <ul className="space-y-1.5">
+      {attachments.map(a => (
+        <li key={a.id}>
+          <button
+            type="button"
+            onClick={() => open(a)}
+            disabled={busyId === a.id}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 hover:border-red-300 hover:bg-red-50/30 text-left text-xs cursor-pointer disabled:opacity-60"
+          >
+            <Paperclip className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="flex-1 min-w-0 truncate font-semibold text-slate-700">{a.name}</span>
+            <span className="text-slate-400 shrink-0">{busyId === a.id ? 'กำลังโหลด...' : formatFileSize(a.size)}</span>
+            <Download className="w-4 h-4 text-red-600 shrink-0" />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 };
 
@@ -47,20 +109,20 @@ export const KnowledgeBaseView: React.FC = () => {
 // Article list
 // ---------------------------------------------------------------------------
 
-const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
-  const { departments } = useApp();
+const ArticleList: React.FC<{ onOpen: (id: string) => void; onWrite: () => void }> = ({ onOpen, onWrite }) => {
+  const { departments, knowledgeArticles: articles, canWriteArticles } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<DepartmentId | 'all'>('all');
 
   // Departments that own at least one article, in org-chart order
-  const ownerDepts = departments.filter(d => KNOWLEDGE_ARTICLES.some(a => a.departmentId === d.id));
+  const ownerDepts = departments.filter(d => articles.some(a => a.departmentId === d.id));
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return KNOWLEDGE_ARTICLES.filter(
+    return articles.filter(
       a => (deptFilter === 'all' || a.departmentId === deptFilter) && (!q || articleSearchText(a).includes(q))
     );
-  }, [searchQuery, deptFilter]);
+  }, [articles, searchQuery, deptFilter]);
 
   const chipClass = (isActive: boolean) =>
     `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
@@ -72,13 +134,23 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => 
   return (
     <div className="space-y-5">
       {/* Page header */}
-      <div className="pb-3 border-b border-slate-200">
+      <div className="pb-3 border-b border-slate-200 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-red-700 text-white flex items-center justify-center shadow-xs">
             <BookOpen className="w-4 h-4" />
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Knowledge Base</h1>
         </div>
+        {canWriteArticles && (
+          <button
+            type="button"
+            onClick={onWrite}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            เพิ่มบทความ
+          </button>
+        )}
       </div>
 
       {/* Search + department filter */}
@@ -101,11 +173,11 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => 
             aria-pressed={deptFilter === 'all'}
             className={chipClass(deptFilter === 'all')}
           >
-            ทั้งหมด ({KNOWLEDGE_ARTICLES.length})
+            ทั้งหมด ({articles.length})
           </button>
           {ownerDepts.map(dept => {
             const Icon = DEPT_ICONS[dept.id];
-            const count = KNOWLEDGE_ARTICLES.filter(a => a.departmentId === dept.id).length;
+            const count = articles.filter(a => a.departmentId === dept.id).length;
             const isActive = deptFilter === dept.id;
             return (
               <button
@@ -155,6 +227,13 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => 
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     อ่าน {article.readMinutes} นาที • อัปเดต {article.updatedAt}
+                    {!!article.attachments?.length && (
+                      <>
+                        {' '}
+                        • <Paperclip className="w-3 h-3" />
+                        {article.attachments.length}
+                      </>
+                    )}
                   </span>
                   <span className="flex items-center gap-1 font-bold text-red-600">
                     อ่านต่อ
@@ -180,11 +259,24 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => 
 // Article detail
 // ---------------------------------------------------------------------------
 
-const ArticleDetail: React.FC<{ article: KnowledgeArticle; onBack: () => void }> = ({ article, onBack }) => {
-  const { departments, openNewRequestModal, setActiveTab, setActiveDeptFilter, setActiveArticleId } = useApp();
+const ArticleDetail: React.FC<{ article: KnowledgeArticle; onBack: () => void; onEdit: () => void }> = ({
+  article,
+  onBack,
+  onEdit,
+}) => {
+  const {
+    departments,
+    openNewRequestModal,
+    setActiveTab,
+    setActiveDeptFilter,
+    setActiveArticleId,
+    knowledgeArticles,
+    canEditArticle,
+  } = useApp();
   const dept = departments.find(d => d.id === article.departmentId);
   const Icon = DEPT_ICONS[article.departmentId];
-  const otherArticles = KNOWLEDGE_ARTICLES.filter(a => a.id !== article.id);
+  const otherArticles = knowledgeArticles.filter(a => a.id !== article.id).slice(0, 8);
+  const paragraphs = (article.body ?? '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
 
   return (
     <div className="space-y-4">
@@ -200,15 +292,33 @@ const ArticleDetail: React.FC<{ article: KnowledgeArticle; onBack: () => void }>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* Article body */}
         <article className="lg:col-span-8 bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-xs">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
-            <Icon className="w-3.5 h-3.5" />
-            {dept?.nameEn}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
+              <Icon className="w-3.5 h-3.5" />
+              {dept?.nameEn}
+            </span>
+            {canEditArticle(article) && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-red-700 cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                แก้ไข
+              </button>
+            )}
+          </div>
           <h1 className="mt-3 text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
             {article.title}
           </h1>
-          <p className="mt-2 text-sm text-slate-600 leading-relaxed">{article.summary}</p>
+          {article.summary && <p className="mt-2 text-sm text-slate-600 leading-relaxed">{article.summary}</p>}
           <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+            {article.authorName && (
+              <span className="flex items-center gap-1">
+                <User className="w-3.5 h-3.5" />
+                {article.authorName}
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5" />
               อัปเดต {article.updatedAt}
@@ -218,6 +328,25 @@ const ArticleDetail: React.FC<{ article: KnowledgeArticle; onBack: () => void }>
               อ่าน {article.readMinutes} นาที
             </span>
           </p>
+
+          {paragraphs.length > 0 && (
+            <div className="mt-6 space-y-3">
+              {paragraphs.map((text, idx) => (
+                <p key={idx} className="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words">
+                  {text}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {!!article.attachments?.length && (
+            <section className="mt-7">
+              <h2 className="text-base font-bold text-slate-900 pb-2 mb-3 border-b border-slate-100">
+                ไฟล์แนบ <span className="text-slate-400 font-normal">{article.attachments.length}</span>
+              </h2>
+              <AttachmentList attachments={article.attachments} />
+            </section>
+          )}
 
           <div className="mt-6 space-y-7">
             {article.sections.map(section => (

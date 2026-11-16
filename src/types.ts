@@ -148,6 +148,21 @@ export interface KnowledgeArticle {
   sections: KnowledgeSection[];
   /** Optional shortcut to an e-Service form related to the article. */
   relatedForm?: { label: string; category: ItRequestCategory };
+  /** Plain-text content of an article written by an employee (paragraphs split by blank lines). */
+  body?: string;
+  attachments?: KbAttachment[];
+  /** Sign-in email of the employee who wrote it; built-in sample articles have none. */
+  createdBy?: string;
+  authorName?: string;
+}
+
+/** A file attached to a knowledge article. Its bytes live in the kbFiles collection in chunks. */
+export interface KbAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  chunks: number;
 }
 
 export type FormFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select';

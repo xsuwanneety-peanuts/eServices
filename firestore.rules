@@ -7,6 +7,8 @@ rules_version = '2';
 //   create / update requests and their notifications.
 // - Anyone signed in can create a form (and its workflow) for their department;
 //   only its creator or an admin can change or delete it afterwards.
+// - Anyone signed in can write Knowledge Base articles and attach files;
+//   only the author or an admin can change or delete them.
 // - Only the admin accounts listed in isAdmin() can change employees, the
 //   original IT forms and their workflows, or delete requests.
 service cloud.firestore {
@@ -58,6 +60,22 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isAdmin() || createsAsSelf();
       allow update: if isAdmin() || (ownsExisting() && createsAsSelf());
+      allow delete: if isAdmin() || ownsExisting();
+    }
+
+    // Knowledge Base articles any employee writes; only the author or an admin changes them
+    match /kbArticles/{id} {
+      allow read: if signedIn();
+      allow create: if createsAsSelf();
+      allow update: if isAdmin() || (ownsExisting() && createsAsSelf());
+      allow delete: if isAdmin() || ownsExisting();
+    }
+
+    // Bytes of files attached to articles, split into chunks (each chunk records its uploader)
+    match /kbFiles/{id} {
+      allow read: if signedIn();
+      allow create: if createsAsSelf();
+      allow update: if false;
       allow delete: if isAdmin() || ownsExisting();
     }
 
