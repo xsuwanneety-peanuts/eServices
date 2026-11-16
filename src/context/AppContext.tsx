@@ -14,7 +14,11 @@ import {
   UrgencyLevel,
   ImpactScope,
   PriorityLevel,
+  KnowledgeArticle,
+  KbAttachment,
 } from '../types';
+import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
+import { deleteKbFiles, uploadKbFile } from '../utils/kbFiles';
 import {
   CORPORATE_DEPARTMENTS,
   USER_PERSONAS,
@@ -111,6 +115,20 @@ export interface RequestStatusUpdate {
   timestamp: string;
 }
 
+/** What the article editor sends when saving. */
+export interface KnowledgeArticleInput {
+  title: string;
+  summary: string;
+  departmentId: DepartmentId;
+  tags: string[];
+  /** Plain text of the content. */
+  body: string;
+  content: KnowledgeArticle['content'];
+  /** Attachments already saved that the author kept. */
+  keptAttachments: KbAttachment[];
+  newFiles: File[];
+}
+
 interface AppContextType {
   // Corporate departments
   departments: DepartmentInfo[];
@@ -136,6 +154,15 @@ interface AppContextType {
   /** Knowledge Base article being read (null shows the article list). */
   activeArticleId: string | null;
   setActiveArticleId: (id: string | null) => void;
+  /** Articles employees wrote (newest first), then the built-in sample articles. */
+  knowledgeArticles: KnowledgeArticle[];
+  /** Whether the signed-in user may write knowledge articles. */
+  canWriteArticles: boolean;
+  /** Employee-written articles can be changed by their author and by admins. */
+  canEditArticle: (article: KnowledgeArticle) => boolean;
+  /** Save an article; resolves to its id, or null when saving failed. */
+  saveArticle: (input: KnowledgeArticleInput, existingId?: string) => Promise<string | null>;
+  deleteArticle: (id: string) => Promise<void>;
 
   // Permissions (Top-Right Screen: ตั้งค่าสิทธิ์เข้าถึง)
   menuPermissions: MenuItemPermission[];
@@ -270,6 +297,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
   const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
+  const [kbArticles, setKbArticles] = useFirestoreCollection<KnowledgeArticle>('kbArticles', handleWriteError);
 
   const [menuPermissions, setMenuPermissions, permissionsLoaded] = useFirestoreCollection<MenuItemPermission>(
     'menuPermissions',
@@ -396,6 +424,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ---- Department-built forms ----
   const canManageForms = (deptId: DepartmentId) =>
     isAdminLogin || (isLinkedAccount && currentUser.departmentId === deptId);
+
+  // ---- Knowledge Base (articles employees write) ----
+  const canWriteArticles = isAdminLogin || isLinkedAccount;
+  const canEditArticle = (article: KnowledgeArticle) =>
+    !!article.createdBy && (isAdminLogin || article.createdBy.toLowerCase() === signedInEmail);
+  const knowledgeArticles = useMemo(() => [...kbArticles, ...KNOWLEDGE_ARTICLES], [kbArticles]);
+
+  const saveArticle = async (input: KnowledgeArticleInput, existingId?: string): Promise<string | null> => {
+    const existing = existingId ? kbArticles.find(a => a.id === existingId) : undefined;
+    let uploaded: KbAttachment[];
+    try {
+      uploaded = await Promise.all(input.newFiles.map(file => uploadKbFile(file, signedInEmail)));
+    } catch (error) {
+      handleWriteError(error);
+      return null;
+    }
+    const removed = (existing?.attachments ?? []).filter(a => !input.keptAttachments.some(k => k.id === a.id));
+    const body = input.body.trim();
+    const today = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const article: KnowledgeArticle = {
+      id: existing?.id ?? `kb-${Date.now().toString(36)}`,
+      title: input.title.trim(),
+      summary: input.summary.trim(),
+      departmentId: input.departmentId,
+      tags: input.tags,
+      updatedAt: `${pad(today.getDate())}.${pad(today.getMonth() + 1)}.${today.getFullYear()}`,
+      // Thai has no spaces between words, so estimate from characters (~500 per minute)
+      readMinutes: Math.max(1, Math.round(body.length / 500)),
+      sections: [],
+      body,
+      content: input.content,
+      attachments: [...input.keptAttachments, ...uploaded],
+      createdBy: existing?.createdBy ?? signedInEmail,
+      authorName: existing?.authorName ?? currentUser.name,
+    };
+    setKbArticles(prev => (existing ? prev.map(a => (a.id === article.id ? article : a)) : [article, ...prev]));
+    deleteKbFiles(removed).catch(handleWriteError);
+    showToast(existing ? 'บันทึกบทความแล้ว' : 'เพิ่มบทความแล้ว', 'success');
+    return article.id;
+  };
+
+  const deleteArticle = async (id: string) => {
+    const article = kbArticles.find(a => a.id === id);
+    if (!article) return;
+    setKbArticles(prev => prev.filter(a => a.id !== id));
+    if (activeArticleId === id) setActiveArticleId(null);
+    await deleteKbFiles(article.attachments ?? []).catch(handleWriteError);
+    showToast(`ลบบทความ "${article.title}" แล้ว`, 'info');
+  };
 
   const canEditForm = (form: MenuItemPermission) =>
     !!form.fields && (isAdminLogin || form.createdBy?.toLowerCase() === signedInEmail);
@@ -1005,6 +1083,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveDeptFilter,
         activeArticleId,
         setActiveArticleId,
+        knowledgeArticles,
+        canWriteArticles,
+        canEditArticle,
+        saveArticle,
+        deleteArticle,
         menuPermissions,
         togglePermission,
         setFormAccessForAll,
