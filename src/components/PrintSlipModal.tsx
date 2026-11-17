@@ -1,6 +1,8 @@
 import React, { forwardRef, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DocumentRequest } from '../types';
+import { MemoDocument } from './MemoDocument';
+import { ItRequestDocument } from './ItRequestDocument';
 import {
   X,
   FileDown,
@@ -192,12 +194,20 @@ export const PrintSlipModal: React.FC = () => {
   // Only a fully approved request gets the official PDF
   const isApproved = activeRequest.status === 'approved';
 
+  // A memo is printed in its own layout and named after its memo number
+  const isMemo = !!activeRequest.memo;
+  const isItRequest = !!activeRequest.itRequest;
+  const Paper = isMemo ? MemoDocument : isItRequest ? ItRequestDocument : SlipDocument;
+  const fileName = isMemo
+    ? `Memo-${activeRequest.memo!.docNo.replace('/', '-')}.pdf`
+    : `${activeRequest.code}.pdf`;
+
   const handleDownload = async () => {
     if (!exportRef.current || isSaving) return;
     setIsSaving(true);
     try {
-      await saveSlipAsPdf(exportRef.current, `${activeRequest.code}.pdf`);
-      showToast(`บันทึก ${activeRequest.code}.pdf แล้ว`, 'success');
+      await saveSlipAsPdf(exportRef.current, fileName);
+      showToast(`บันทึก ${fileName} แล้ว`, 'success');
     } catch (error) {
       console.error('PDF export failed', error);
       showToast('สร้าง PDF ไม่สำเร็จ ลองใหม่อีกครั้ง', 'warning');
@@ -213,7 +223,13 @@ export const PrintSlipModal: React.FC = () => {
         <div className="bg-slate-900 text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
             <FileCheck2 className="w-5 h-5 text-blue-400" />
-            <h3 className="text-sm font-bold">เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)</h3>
+            <h3 className="text-sm font-bold">
+              {isMemo
+                ? 'บันทึกภายใน (Memorandum)'
+                : isItRequest
+                  ? 'IT & Request Form'
+                  : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
+            </h3>
           </div>
           <div className="flex items-center space-x-2">
             {isApproved ? (
@@ -238,13 +254,13 @@ export const PrintSlipModal: React.FC = () => {
           </div>
         </div>
 
-        <SlipDocument request={activeRequest} />
+        <Paper request={activeRequest} />
       </div>
 
       {/* Off-screen A4-width copy that the PDF is drawn from */}
       {isApproved && (
         <div aria-hidden="true" className="fixed top-0 left-[-10000px] pointer-events-none">
-          <SlipDocument ref={exportRef} request={activeRequest} forExport />
+          <Paper ref={exportRef} request={activeRequest} forExport />
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { ItStepPanel } from './ItStepPanel';
 import {
   X,
   CheckCircle2,
@@ -36,6 +37,8 @@ export const RequestDetailModal: React.FC = () => {
   const [editTitle, setEditTitle] = useState('');
   const [editDetails, setEditDetails] = useState('');
   const [editNote, setEditNote] = useState('');
+  // A memo is fixed field by field instead of through one details box
+  const [editMemo, setEditMemo] = useState({ to: '', background: '', summary: '' });
 
   const [approveComment, setApproveComment] = useState('เห็นชอบอนุมัติ');
   const [rejectReason, setRejectReason] = useState('');
@@ -55,7 +58,12 @@ export const RequestDetailModal: React.FC = () => {
 
   const startEditing = () => {
     setEditTitle(activeRequest.title);
-    setEditDetails(activeRequest.details);
+    // On an IT & Request Form the box edits the symptom, the part the requester wrote freely
+    setEditDetails(activeRequest.itRequest ? activeRequest.itRequest.symptom : activeRequest.details);
+    if (activeRequest.memo) {
+      const { to, background, summary } = activeRequest.memo;
+      setEditMemo({ to, background, summary });
+    }
     setEditNote('');
     setIsEditing(true);
   };
@@ -65,10 +73,18 @@ export const RequestDetailModal: React.FC = () => {
       alert('กรุณากรอกหัวเรื่อง');
       return;
     }
+    const memo = activeRequest.memo
+      ? { to: editMemo.to.trim(), background: editMemo.background.trim(), summary: editMemo.summary.trim() }
+      : undefined;
+    if (memo && (!memo.to || !memo.background || !memo.summary)) {
+      alert('กรุณากรอก เรียน สรุปความเป็นมา และสรุปสาระสำคัญ ให้ครบ');
+      return;
+    }
     resubmitRequest(activeRequest.id, {
       title: editTitle.trim(),
       details: editDetails.trim(),
       note: editNote.trim(),
+      memo,
     });
     setIsEditing(false);
   };
@@ -341,7 +357,10 @@ export const RequestDetailModal: React.FC = () => {
           </div>
 
           {/* Quick Action Area — shown only to the approver of the current step */}
-          {isPending && canDecide && (
+          {isPending && canDecide && activeRequest.itRequest && currentStep?.task && !isRejecting && (
+            <ItStepPanel request={activeRequest} onReturn={() => setIsRejecting(true)} />
+          )}
+          {isPending && canDecide && !(activeRequest.itRequest && currentStep?.task && !isRejecting) && (
             <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50/30 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-red-950 flex items-center gap-1.5">
@@ -412,7 +431,8 @@ export const RequestDetailModal: React.FC = () => {
 
             {isEditing ? (
               <div className="space-y-2.5">
-                <div>
+                {/* An IT & Request Form names itself from what was ticked and the symptom */}
+                <div className={activeRequest.itRequest ? 'hidden' : undefined}>
                   <label htmlFor="rs-title" className="block font-semibold text-slate-700 mb-1">
                     หัวเรื่อง
                   </label>
@@ -423,18 +443,53 @@ export const RequestDetailModal: React.FC = () => {
                     className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
                   />
                 </div>
-                <div>
-                  <label htmlFor="rs-details" className="block font-semibold text-slate-700 mb-1">
-                    รายละเอียด
-                  </label>
-                  <textarea
-                    id="rs-details"
-                    rows={4}
-                    value={editDetails}
-                    onChange={e => setEditDetails(e.target.value)}
-                    className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
-                  />
-                </div>
+                {activeRequest.memo ? (
+                  <>
+                    <div>
+                      <label htmlFor="rs-memo-to" className="block font-semibold text-slate-700 mb-1">
+                        เรียน
+                      </label>
+                      <input
+                        id="rs-memo-to"
+                        value={editMemo.to}
+                        onChange={e => setEditMemo(prev => ({ ...prev, to: e.target.value }))}
+                        className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
+                      />
+                    </div>
+                    {(
+                      [
+                        ['background', 'สรุปความเป็นมา'],
+                        ['summary', 'สรุปสาระสำคัญ'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <div key={key}>
+                        <label htmlFor={`rs-memo-${key}`} className="block font-semibold text-slate-700 mb-1">
+                          {label}
+                        </label>
+                        <textarea
+                          id={`rs-memo-${key}`}
+                          rows={4}
+                          value={editMemo[key]}
+                          onChange={e => setEditMemo(prev => ({ ...prev, [key]: e.target.value }))}
+                          className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
+                        />
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div>
+                    <label htmlFor="rs-details" className="block font-semibold text-slate-700 mb-1">
+                      {activeRequest.itRequest ? 'สาเหตุ / อาการ' : 'รายละเอียด'}
+                    </label>
+                    <textarea
+                      id="rs-details"
+                      rows={4}
+                      value={editDetails}
+                      onChange={e => setEditDetails(e.target.value)}
+                      className="w-full p-2 rounded-lg border border-slate-300 bg-white focus:outline-hidden focus:border-red-500"
+                    />
+                  </div>
+                )}
                 <div>
                   <label htmlFor="rs-note" className="block font-semibold text-slate-700 mb-1">
                     แก้ไขอะไรไป (ไม่บังคับ)

@@ -3,6 +3,8 @@ import { useApp } from '../context/AppContext';
 import { DepartmentId, ItRequestCategory, MenuItemPermission } from '../types';
 import { FormBuilderModal } from './FormBuilderModal';
 import { CustomRequestModal } from './CustomRequestModal';
+import { MemoRequestModal } from './MemoRequestModal';
+import { ItRequestModal } from './ItRequestModal';
 import {
   FileText,
   Lock,
@@ -46,7 +48,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
 
   // Form builder: undefined = closed, null = new form, otherwise the form being edited
   const [builderForm, setBuilderForm] = useState<MenuItemPermission | null | undefined>(undefined);
-  // Department-built form being filled in
+  // Department-built form (or built-in memo) being filled in
   const [fillingForm, setFillingForm] = useState<MenuItemPermission | null>(null);
 
   const deptIcons: Record<DepartmentId, React.ElementType> = {
@@ -138,7 +140,7 @@ export const DepartmentWorkspaceView: React.FC = () => {
                     {hasAccess ? (
                       <button
                         onClick={() => {
-                          if (form.fields) {
+                          if (form.fields || form.template) {
                             setFillingForm(form);
                             return;
                           }
@@ -259,7 +261,14 @@ export const DepartmentWorkspaceView: React.FC = () => {
       {builderForm !== undefined && (
         <FormBuilderModal deptId={currentDeptKey} form={builderForm} onClose={() => setBuilderForm(undefined)} />
       )}
-      {fillingForm && <CustomRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />}
+      {fillingForm &&
+        (fillingForm.template === 'memo' ? (
+          <MemoRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />
+        ) : fillingForm.template === 'it_request' ? (
+          <ItRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />
+        ) : (
+          <CustomRequestModal form={fillingForm} onClose={() => setFillingForm(null)} />
+        ))}
     </div>
   );
 };

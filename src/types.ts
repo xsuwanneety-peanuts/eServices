@@ -52,8 +52,23 @@ export interface UserPersona {
  * - reports_to: the requester's line manager
  * - reports_to_2: the line manager's own manager
  * - employee: one specific employee
+ * - requester_picks: whoever the requester chooses when filling in the form
+ * - department: any member of one department (whoever picks the job up)
  */
-export type StepApproverType = 'requester' | 'reports_to' | 'reports_to_2' | 'employee';
+export type StepApproverType =
+  | 'requester'
+  | 'reports_to'
+  | 'reports_to_2'
+  | 'employee'
+  | 'requester_picks'
+  | 'department';
+
+/**
+ * A step where the person acting records something instead of only approving:
+ * - it_work: IT records the diagnosis, the work done and what is handed over
+ * - acceptance: the requester accepts the finished work and rates the service
+ */
+export type StepTask = 'it_work' | 'acceptance';
 
 export type RequestStatus = 'pending' | 'in_review' | 'approved' | 'rejected' | 'returned';
 
@@ -65,6 +80,9 @@ export interface ApprovalStepConfig {
   approverType: StepApproverType;
   /** Set when approverType is 'employee'. */
   approverEmployeeId?: string;
+  /** Set when approverType is 'department'. */
+  approverDepartmentId?: DepartmentId;
+  task?: StepTask;
   sendEmailNotification: boolean;
 
   slaHours?: number;
@@ -88,6 +106,9 @@ export interface ApprovalAuditEntry {
   approverName: string;
   approverRole: string;
   approverEmail: string;
+  /** Set when any member of this department may act on the step. */
+  approverDepartmentId?: DepartmentId;
+  task?: StepTask;
   status: 'pending' | 'approved' | 'rejected' | 'waiting';
   timestamp?: string;
   comment?: string;
@@ -128,6 +149,77 @@ export interface DocumentRequest {
   /** Set when the request was made with a department-built form. */
   formId?: string;
   answers?: { label: string; value: string }[];
+  /** Set when the request is an internal memorandum (printed in the memo layout). */
+  memo?: MemoData;
+  /** Set when the request is an IT & Request Form (printed in the paper form's layout). */
+  itRequest?: ItRequestData;
+}
+
+/** One ticked line of the IT & Request Form: what it concerns, its asset number and the need. */
+export interface ItRequestItem {
+  type: string;
+  assetNo: string;
+  detail: string;
+}
+
+/** Part 2 of the IT & Request Form, plus the hand-over details of part 3, recorded by IT. */
+export interface ItWorkRecord {
+  urgency: 'urgent' | 'can_wait';
+  /** Days it can wait, when urgency is 'can_wait'. */
+  waitDays?: number;
+  /** กระทบงานประจำ / ไม่กระทบงานประจำ / กระทบระบบคอมพิวเตอร์ */
+  impacts: string[];
+  estimate: { days: number; hours: number; minutes: number };
+  /** สาเหตุ / แนวทางแก้ไข / การแก้ไข หรือการดำเนินการ */
+  solution: string;
+  /** ซื้อ / ซ่อม / สร้าง / แก้ไข / โอนย้าย */
+  actions: string[];
+  /** HW / SW / PW */
+  kinds: string[];
+  /** Start and end of the work as yyyy-mm-ddThh:mm. */
+  startAt: string;
+  endAt: string;
+  /** Cost in baht; 0 when there was none. */
+  cost: number;
+  equipmentUsed: string[];
+  requisitionNo: string;
+  requisitionDate: string;
+  disposedAssetNo: string;
+  transferredAssetNo: string;
+}
+
+/** The requester's sign-off in part 3: a 1-5 score on four points and an optional remark. */
+export interface ItAcceptance {
+  ratings: { service: number; speed: number; accuracy: number; tools: number };
+  remark: string;
+}
+
+export interface ItRequestData {
+  /** Login name of the requester ("User" on the form). */
+  userLogin: string;
+  phone: string;
+  /** ผู้ครอบครองทรัพย์สิน */
+  assetHolder: string;
+  location: string;
+  items: ItRequestItem[];
+  /** สาเหตุ / อาการ */
+  symptom: string;
+  work?: ItWorkRecord;
+  acceptance?: ItAcceptance;
+}
+
+/** Content of an internal memorandum (บันทึกภายใน). The subject is the request title. */
+export interface MemoData {
+  /** Running number per department and Buddhist year, e.g. IT015/69. */
+  docNo: string;
+  /** Addressee (เรียน). */
+  to: string;
+  /** Memo date as dd/mm/yyyy in the Buddhist era. */
+  date: string;
+  /** สรุปความเป็นมา */
+  background: string;
+  /** สรุปสาระสำคัญ */
+  summary: string;
 }
 
 /** One block of a knowledge article: a heading with paragraphs, numbered steps, and/or a tip. */
@@ -192,6 +284,8 @@ export interface MenuItemPermission {
   description?: string;
   fields?: FormFieldDefinition[];
   workflowId?: string;
+  /** A built-in form with its own screen and print layout (not made in the form builder). */
+  template?: 'memo' | 'it_request';
   /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */
   createdBy?: string;
   allowedDepartments: Record<DepartmentId, boolean>;

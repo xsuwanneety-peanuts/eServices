@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { EMAIL_SENDER_NAME, renderStepEmail } from '../utils/emailTemplate';
 import { APPROVER_TYPE_LABELS, resolveStepApprover } from '../utils/approvers';
+import { MEMO_WORKFLOW_ID } from '../utils/memo';
 
 export const WorkflowBuilderView: React.FC = () => {
   const {
@@ -48,12 +49,22 @@ export const WorkflowBuilderView: React.FC = () => {
       const person = employees.find(e => e.id === step.approverEmployeeId);
       return person ? `${person.name} (${person.position})` : 'ยังไม่ได้เลือกพนักงาน';
     }
+    if (step.approverType === 'department') {
+      const dept = departments.find(d => d.id === step.approverDepartmentId);
+      return `ทุกคนใน ${dept?.nameEn ?? 'หน่วยงานที่ระบุ'}`;
+    }
     return APPROVER_TYPE_LABELS[step.approverType];
   };
 
   const [activeStepEditingId, setActiveStepEditingId] = useState<string | null>(null);
 
   if (!activeWorkflow) return null;
+
+  // Letting the requester pick the approver needs a form screen that asks for it; only the memo has one
+  const approverTypeOptions: StepApproverType[] =
+    activeWorkflow.id === MEMO_WORKFLOW_ID
+      ? ['requester_picks', 'reports_to', 'reports_to_2', 'employee']
+      : ['reports_to', 'reports_to_2', 'employee'];
 
   // Forms a department built itself keep their approval steps in the form builder;
   // editing them here as well would let the two screens overwrite each other
@@ -285,7 +296,10 @@ export const WorkflowBuilderView: React.FC = () => {
                               }}
                               className={selectClass}
                             >
-                              {(['reports_to', 'reports_to_2', 'employee'] as StepApproverType[]).map(type => (
+                              {(approverTypeOptions.includes(step.approverType)
+                                ? approverTypeOptions
+                                : [step.approverType, ...approverTypeOptions]
+                              ).map(type => (
                                 <option key={type} value={type}>
                                   {APPROVER_TYPE_LABELS[type]}
                                 </option>
