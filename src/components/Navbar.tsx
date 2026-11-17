@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from './AuthGate';
 import { ENV_BADGE, FIREBASE_PROJECT_ID, IS_PRODUCTION } from '../lib/firebase';
-import { DepartmentId } from '../types';
+import { MenuItemPermission } from '../types';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
-import { DEPT_ICONS } from '../utils/departmentIcons';
+
 import {
   Bell,
   ChevronDown,
@@ -13,7 +13,9 @@ import {
   Menu,
   X,
   Home,
-  Laptop,
+  FileText,
+  Pencil,
+  Plus,
   BookOpen,
   LogOut,
   Download,
@@ -30,7 +32,7 @@ const ADMIN_NAV_ITEMS = [
   { tab: 'employee_directory', name: 'Employee Directory', icon: Contact },
 ];
 
-const DEPT_GROUP_LABEL = 'หน่วยงาน';
+const FORMS_GROUP_LABEL = 'แบบฟอร์ม';
 const ADMIN_GROUP_LABEL = 'การจัดการระบบ';
 const HOME_LABEL = 'เมนูของฉัน';
 const KB_LABEL = 'Knowledge Base';
@@ -62,9 +64,11 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
     setSelectedNotificationId,
     activeTab,
     setActiveTab,
-    activeDeptFilter,
-    setActiveDeptFilter,
-    departments,
+    offeredForms,
+    setFillingFormId,
+    setFormBuilder,
+    canManageForms,
+    canEditForm,
     activeArticleId,
     setActiveArticleId,
   } = useApp();
@@ -112,12 +116,26 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   const toggleMenu = (menu: Exclude<OpenMenu, null>) =>
     setOpenMenu(prev => (prev === menu ? null : menu));
 
-  const goTo = (tab: string, dept: DepartmentId | null = null) => {
+  const goTo = (tab: string) => {
     setActiveTab(tab);
-    setActiveDeptFilter(dept);
     setActiveArticleId(null);
     setOpenMenu(null);
   };
+
+  // The แบบฟอร์ม menu opens a form straight away, on top of whatever page is showing
+  const openForm = (formId: string) => {
+    setFillingFormId(formId);
+    setOpenMenu(null);
+  };
+  const editForm = (form: MenuItemPermission) => {
+    setFormBuilder({ deptId: form.ownerDepartmentId, form });
+    setOpenMenu(null);
+  };
+  const newForm = () => {
+    setFormBuilder({ deptId: currentUser.departmentId, form: null });
+    setOpenMenu(null);
+  };
+  const canBuildForms = canManageForms(currentUser.departmentId);
 
   // Close any open menu on outside click or Escape
   useEffect(() => {
@@ -141,20 +159,14 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   }, [openMenu]);
 
   const isHomeActive = activeTab === 'my_workspace';
-  const isDeptActive = activeTab === 'department_view';
   const isKbActive = activeTab === 'knowledge_base';
   const activeArticle = isKbActive ? KNOWLEDGE_ARTICLES.find(a => a.id === activeArticleId) : undefined;
   // System-management screens this user may open
   const adminItems = ADMIN_NAV_ITEMS.filter(item => canAccessTab(item.tab));
   const activeAdminItem = adminItems.find(item => item.tab === activeTab);
-  const activeDept = isDeptActive
-    ? departments.find(d => d.id === (activeDeptFilter || 'it'))
-    : undefined;
 
   // Breadcrumb trail shown under the navbar
-  const breadcrumb: string[] = isDeptActive
-    ? [DEPT_GROUP_LABEL, activeDept?.nameEn ?? '']
-    : isKbActive
+  const breadcrumb: string[] = isKbActive
       ? activeArticle
         ? [KB_LABEL, activeArticle.title]
         : [KB_LABEL]
@@ -223,9 +235,10 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             onClick={() => toggleMenu('dept')}
             aria-haspopup="true"
             aria-expanded={openMenu === 'dept'}
-            className={topLinkClass(isDeptActive, openMenu === 'dept')}
+            className={topLinkClass(false, openMenu === 'dept')}
           >
-            <span>{DEPT_GROUP_LABEL}</span>
+            <FileText className="w-4 h-4" />
+            <span>{FORMS_GROUP_LABEL}</span>
             <ChevronDown
               className={`w-3.5 h-3.5 transition-transform ${openMenu === 'dept' ? 'rotate-180' : ''}`}
             />
@@ -486,48 +499,55 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
         </div>
       </div>
 
-      {/* Mega Menu: หน่วยงานองค์กร (desktop, full width) */}
+      {/* Mega Menu: แบบฟอร์ม (desktop, full width) */}
       {openMenu === 'dept' && (
         <div className="hidden lg:block absolute left-0 right-0 top-14 mt-px bg-white border-b border-slate-200 shadow-xl z-40">
           <div className="max-w-[1280px] mx-auto px-6 py-5">
             <div className="pb-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              {DEPT_GROUP_LABEL}
+              {FORMS_GROUP_LABEL}
             </div>
-            <div className="grid grid-cols-3 xl:grid-cols-4 gap-2">
-              {departments.map(dept => {
-                const Icon = DEPT_ICONS[dept.id] || Laptop;
-                const isActive = isDeptActive && activeDept?.id === dept.id;
-                return (
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+              {offeredForms.map(form => (
+                <div key={form.id} className="flex items-center gap-1 rounded-lg hover:bg-slate-50">
                   <button
-                    key={dept.id}
-                    onClick={() => goTo('department_view', dept.id)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border-l-4 text-left transition-colors cursor-pointer ${
-                      isActive
-                        ? 'bg-red-50 border-red-600'
-                        : 'border-transparent hover:bg-slate-50'
-                    }`}
+                    onClick={() => openForm(form.id)}
+                    className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left cursor-pointer"
                   >
-                    <span
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        isActive ? 'bg-white text-red-600' : 'bg-slate-100 text-slate-500'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
+                    <span className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
                     </span>
                     <span className="min-w-0">
-                      <span
-                        className={`block text-sm leading-snug ${
-                          isActive ? 'font-bold text-red-700' : 'font-semibold text-slate-800'
-                        }`}
-                      >
-                        {dept.nameEn}
-                      </span>
-                      <span className="block text-[11px] text-slate-400 truncate">{dept.nameTh}</span>
+                      <span className="block text-sm font-semibold text-slate-800 leading-snug">{form.menuName}</span>
+                      {form.description && (
+                        <span className="block text-[11px] text-slate-400 truncate">{form.description}</span>
+                      )}
                     </span>
                   </button>
-                );
-              })}
+                  {canEditForm(form) && (
+                    <button
+                      type="button"
+                      onClick={() => editForm(form)}
+                      title={`แก้ไขแบบฟอร์ม ${form.menuName}`}
+                      aria-label={`แก้ไขแบบฟอร์ม ${form.menuName}`}
+                      className="p-2 mr-1 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {offeredForms.length === 0 && <p className="px-3 py-2 text-xs text-slate-400">ยังไม่มีแบบฟอร์ม</p>}
+              {canBuildForms && (
+                <button
+                  onClick={newForm}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-semibold text-red-600 hover:bg-red-50 cursor-pointer"
+                >
+                  <span className="w-9 h-9 rounded-lg border border-dashed border-red-300 flex items-center justify-center shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </span>
+                  สร้างแบบฟอร์มใหม่
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -555,44 +575,59 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
           <button
             onClick={() => setMobileSection(prev => (prev === 'dept' ? null : 'dept'))}
             aria-expanded={mobileSection === 'dept'}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-l-4 border-transparent text-sm text-left cursor-pointer hover:bg-slate-50 ${
-              isDeptActive ? 'text-red-700 font-bold' : 'text-slate-700 font-medium'
-            }`}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-l-4 border-transparent text-sm text-left cursor-pointer hover:bg-slate-50 text-slate-700 font-medium"
           >
-            <span>
-              {DEPT_GROUP_LABEL}
+            <span className="flex items-center gap-2.5">
+              <FileText className="w-4 h-4 text-slate-500" />
+              {FORMS_GROUP_LABEL}
             </span>
             <ChevronDown
               className={`w-4 h-4 text-slate-400 transition-transform ${mobileSection === 'dept' ? 'rotate-180' : ''}`}
             />
           </button>
           {mobileSection === 'dept' && (
-            <div className="pl-3 pb-1 space-y-0.5">
-              {departments.map(dept => {
-                const Icon = DEPT_ICONS[dept.id] || Laptop;
-                const isActive = isDeptActive && activeDept?.id === dept.id;
-                return (
+            <div className="pl-3 pb-1 space-y-0.5 flex flex-col">
+              {offeredForms.map(form => (
+                <div key={form.id} className="flex items-center gap-1 rounded-lg hover:bg-slate-50">
                   <button
-                    key={dept.id}
-                    onClick={() => goTo('department_view', dept.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-4 text-left cursor-pointer ${
-                      isActive ? 'bg-red-50 border-red-600' : 'border-transparent hover:bg-slate-50'
-                    }`}
+                    onClick={() => openForm(form.id)}
+                    className="flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left cursor-pointer"
                   >
-                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-red-600' : 'text-slate-400'}`} />
+                    <span className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </span>
                     <span className="min-w-0">
-                      <span
-                        className={`block text-xs leading-snug ${
-                          isActive ? 'font-bold text-red-700' : 'font-medium text-slate-700'
-                        }`}
-                      >
-                        {dept.nameEn}
-                      </span>
-                      <span className="block text-[10px] text-slate-400 truncate">{dept.nameTh}</span>
+                      <span className="block text-xs font-semibold text-slate-800 leading-snug">{form.menuName}</span>
+                      {form.description && (
+                        <span className="block text-[11px] text-slate-400 truncate">{form.description}</span>
+                      )}
                     </span>
                   </button>
-                );
-              })}
+                  {canEditForm(form) && (
+                    <button
+                      type="button"
+                      onClick={() => editForm(form)}
+                      title={`แก้ไขแบบฟอร์ม ${form.menuName}`}
+                      aria-label={`แก้ไขแบบฟอร์ม ${form.menuName}`}
+                      className="p-2 mr-1 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {offeredForms.length === 0 && <p className="px-3 py-2 text-xs text-slate-400">ยังไม่มีแบบฟอร์ม</p>}
+              {canBuildForms && (
+                <button
+                  onClick={newForm}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-xs font-semibold text-red-600 hover:bg-red-50 cursor-pointer"
+                >
+                  <span className="w-8 h-8 rounded-lg border border-dashed border-red-300 flex items-center justify-center shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </span>
+                  สร้างแบบฟอร์มใหม่
+                </button>
+              )}
             </div>
           )}
 

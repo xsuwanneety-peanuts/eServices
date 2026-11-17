@@ -1,4 +1,4 @@
-import { DepartmentId, FormFieldType, StepApproverType } from '../types';
+import { DepartmentId, FormFieldType, MenuItemPermission, StepApproverType } from '../types';
 
 export const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   text: 'ข้อความสั้น',
@@ -34,5 +34,12 @@ export interface CustomFormInput {
   steps: { id: string; title: string; approverType: StepApproverType; approverEmployeeId?: string }[];
   audience: FormAudience;
 }
+
+/**
+ * Forms people can fill in: the built-in ones with their own screen (template) and the ones
+ * a department made in the form builder (fields). The five original IT forms are neither,
+ * so they are no longer offered; requests made with them stay readable.
+ */
+export const isOfferedForm = (form: MenuItemPermission): boolean => !!form.template || !!form.fields;
 
 export const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;

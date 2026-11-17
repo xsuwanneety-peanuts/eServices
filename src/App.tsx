@@ -11,7 +11,7 @@ import { DashboardView } from './components/DashboardView';
 import { AccessControlView } from './components/AccessControlView';
 import { WorkflowBuilderView } from './components/WorkflowBuilderView';
 import { EmployeeDirectoryView } from './components/EmployeeDirectoryView';
-import { DepartmentWorkspaceView } from './components/DepartmentWorkspaceView';
+import { FormModals } from './components/FormModals';
 import { KnowledgeBaseView } from './components/KnowledgeBaseView';
 import { NewRequestModal } from './components/NewRequestModal';
 import { EmailSimulatorModal } from './components/EmailSimulatorModal';
@@ -86,13 +86,13 @@ const AppContent: React.FC = () => {
           {activeTab === 'access_control' && <AccessControlView />}
           {activeTab === 'workflow_builder' && <WorkflowBuilderView />}
           {activeTab === 'employee_directory' && <EmployeeDirectoryView />}
-          {activeTab === 'department_view' && <DepartmentWorkspaceView />}
           {activeTab === 'knowledge_base' && <KnowledgeBaseView />}
         </div>
       </main>
 
       {/* Global Modals */}
       <NewRequestModal />
+      <FormModals />
       <EmailSimulatorModal />
       <RequestDetailModal />
       <PrintSlipModal />

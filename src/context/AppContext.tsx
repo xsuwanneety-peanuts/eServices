@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import {
   DepartmentId,
   DepartmentInfo,
@@ -21,8 +21,14 @@ import {
 } from '../types';
 import {
   MEMO_FORM,
+  MEMO_OLD_REQUESTS_MARKER,
   MEMO_SEED_MARKER,
+  MEMO_TITLES_MARKER,
+  memoRequestWithCurrentWording,
+  memoStepTitle,
   MEMO_WORKFLOW,
+  MEMO_WORKFLOW_ID,
+  withCurrentMemoWording,
   memoAnswers,
   memoDetails,
   nextMemoNo,
@@ -47,8 +53,9 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
+import { isOfferedForm } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
-import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
+import { markOnce, seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
 import { SEED_SAMPLE_DATA } from '../lib/firebase';
 import { CustomFormInput, FORM_CODE_PREFIX } from '../utils/forms';
@@ -184,8 +191,14 @@ interface AppContextType {
   // Navigation
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  activeDeptFilter: DepartmentId | null;
-  setActiveDeptFilter: (dept: DepartmentId | null) => void;
+  /** Forms on offer in the แบบฟอร์ม menu that the signed-in user may fill in. */
+  offeredForms: MenuItemPermission[];
+  /** Form being filled in (null when none is open). */
+  fillingFormId: string | null;
+  setFillingFormId: (id: string | null) => void;
+  /** Form builder: null = closed; `form: null` = a new form for that department. */
+  formBuilder: { deptId: DepartmentId; form: MenuItemPermission | null } | null;
+  setFormBuilder: (state: { deptId: DepartmentId; form: MenuItemPermission | null } | null) => void;
   /** Knowledge Base article being read (null shows the article list). */
   activeArticleId: string | null;
   setActiveArticleId: (id: string | null) => void;
@@ -201,9 +214,8 @@ interface AppContextType {
 
   // Permissions (Top-Right Screen: ตั้งค่าสิทธิ์เข้าถึง)
   menuPermissions: MenuItemPermission[];
-  togglePermission: (menuId: string, deptId: DepartmentId) => void;
-  /** Open a form to every department (true) or close it to all of them (false). */
-  setFormAccessForAll: (menuId: string, allowed: boolean) => void;
+  /** Sets which departments may use the given forms: form id → department → allowed. */
+  setFormsAccess: (changes: Record<string, Record<DepartmentId, boolean>>) => void;
   /** Whether the signed-in user may build forms for this department (its members, and admins). */
   canManageForms: (deptId: DepartmentId) => boolean;
   /** Whether the signed-in user may edit or delete this department-built form. */
@@ -211,7 +223,6 @@ interface AppContextType {
   /** Create (no existingId) or update a department-built form and its approval workflow. */
   saveCustomForm: (deptId: DepartmentId, input: CustomFormInput, existingId?: string) => void;
   deleteCustomForm: (formId: string) => void;
-  resetPermissions: () => void;
   isMenuPermittedForUser: (menuCode: string) => boolean;
 
   // Workflows (Bottom-Right Screen: ตั้งค่า Flow อนุมัติ & แจ้งเตือนอีเมล)
@@ -342,8 +353,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [],
     isArray
   );
-  const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
+  const [fillingFormId, setFillingFormId] = useState<string | null>(null);
+  const [formBuilder, setFormBuilder] = useState<{ deptId: DepartmentId; form: MenuItemPermission | null } | null>(
+    null
+  );
   const [kbArticles, setKbArticles] = useFirestoreCollection<KnowledgeArticle>('kbArticles', handleWriteError);
 
   const [menuPermissions, setMenuPermissions, permissionsLoaded] = useFirestoreCollection<MenuItemPermission>(
@@ -400,6 +414,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       1100
     ).catch(handleWriteError);
   }, [isAdminLogin, employeesLoaded]);
+
+  // A memo form saved with the first wording ("CFO อนุมัติ", "CEO อนุมัติ") is reworded once
+  const hasMemoFlow = workflows.some(w => w.id === MEMO_WORKFLOW_ID);
+  const memoRewordStarted = useRef(false);
+  useEffect(() => {
+    if (!isAdminLogin || !workflowsLoaded || !permissionsLoaded || !hasMemoFlow || memoRewordStarted.current) return;
+    memoRewordStarted.current = true;
+    markOnce(MEMO_TITLES_MARKER)
+      .then(first => {
+        if (!first) return;
+        setWorkflows(prev => prev.map(withCurrentMemoWording.workflow));
+        setMenuPermissions(prev => prev.map(withCurrentMemoWording.form));
+      })
+      .catch(handleWriteError);
+  }, [isAdminLogin, workflowsLoaded, permissionsLoaded, hasMemoFlow]);
+
+  // Memos already sent, and the alerts raised for them, get the same rewording once
+  const oldMemosRewordStarted = useRef(false);
+  useEffect(() => {
+    if (!isAdminLogin || !requestsLoaded || !notificationsLoaded || oldMemosRewordStarted.current) return;
+    oldMemosRewordStarted.current = true;
+    markOnce(MEMO_OLD_REQUESTS_MARKER)
+      .then(first => {
+        if (!first) return;
+        const memoIds = new Set(requests.filter(r => r.memo).map(r => r.id));
+        setRequests(prev => prev.map(memoRequestWithCurrentWording));
+        setEmailNotifications(prev =>
+          prev.map(n => (memoIds.has(n.requestId) ? { ...n, stepTitle: memoStepTitle(n.stepTitle) } : n))
+        );
+      })
+      .catch(handleWriteError);
+  }, [isAdminLogin, requestsLoaded, notificationsLoaded]);
 
   // ---- Employee Directory ----
   const departmentLabel = (deptId: DepartmentId) => {
@@ -464,23 +510,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return perm.allowedDepartments[currentUser.departmentId] ?? false;
   };
 
-  // Toggle permission in the matrix
-  const togglePermission = (menuId: string, deptId: DepartmentId) => {
+  const offeredForms = menuPermissions.filter(f => isOfferedForm(f) && isMenuPermittedForUser(f.menuCode));
+
+  // Set which departments may use one or more forms (the access page shows its own feedback)
+  const setFormsAccess = (changes: Record<string, Record<DepartmentId, boolean>>) => {
     setMenuPermissions(prev =>
-      prev.map(item => {
-        if (item.id === menuId) {
-          return {
-            ...item,
-            allowedDepartments: {
-              ...item.allowedDepartments,
-              [deptId]: !item.allowedDepartments[deptId],
-            },
-          };
-        }
-        return item;
-      })
+      prev.map(form => (changes[form.id] ? { ...form, allowedDepartments: changes[form.id] } : form))
     );
-    showToast('ปรับปรุงสิทธิ์การเข้าถึงเรียบร้อยแล้ว', 'info');
   };
 
   // ---- Department-built forms ----
@@ -619,34 +655,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMenuPermissions(prev => prev.filter(f => f.id !== formId));
     if (form.workflowId) setWorkflows(prev => prev.filter(w => w.id !== form.workflowId));
     showToast(`ลบแบบฟอร์ม "${form.menuName}" แล้ว`, 'info');
-  };
-
-  const setFormAccessForAll = (menuId: string, allowed: boolean) => {
-    setMenuPermissions(prev =>
-      prev.map(item =>
-        item.id === menuId
-          ? {
-              ...item,
-              allowedDepartments: Object.fromEntries(
-                CORPORATE_DEPARTMENTS.map(d => [d.id, allowed])
-              ) as Record<DepartmentId, boolean>,
-            }
-          : item
-      )
-    );
-    showToast(allowed ? 'เปิดสิทธิ์ให้ทุกหน่วยงานแล้ว' : 'ปิดสิทธิ์ทุกหน่วยงานแล้ว', 'info');
-  };
-
-  // Puts the standard forms' access back to the defaults. Forms that departments built
-  // themselves have no default, so they are left exactly as they are.
-  const resetPermissions = () => {
-    setMenuPermissions(prev =>
-      prev.map(form => {
-        const standard = INITIAL_MENU_PERMISSIONS.find(f => f.id === form.id);
-        return standard ? { ...form, allowedDepartments: standard.allowedDepartments } : form;
-      })
-    );
-    showToast('รีเซ็ตสิทธิ์ของแบบฟอร์มมาตรฐานแล้ว (แบบฟอร์มที่หน่วยงานสร้างเองไม่เปลี่ยน)', 'info');
   };
 
   // Active workflow
@@ -1187,8 +1195,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dataReady,
         activeTab,
         setActiveTab,
-        activeDeptFilter,
-        setActiveDeptFilter,
+        offeredForms,
+        fillingFormId,
+        setFillingFormId,
+        formBuilder,
+        setFormBuilder,
         activeArticleId,
         setActiveArticleId,
         knowledgeArticles,
@@ -1197,13 +1208,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         saveArticle,
         deleteArticle,
         menuPermissions,
-        togglePermission,
-        setFormAccessForAll,
+        setFormsAccess,
         canManageForms,
         canEditForm,
         saveCustomForm,
         deleteCustomForm,
-        resetPermissions,
         isMenuPermittedForUser,
         workflows,
         selectedWorkflowId,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ApprovalStepConfig, StepApproverType } from '../types';
 import {
@@ -18,6 +18,7 @@ import {
 import { EMAIL_SENDER_NAME, renderStepEmail } from '../utils/emailTemplate';
 import { APPROVER_TYPE_LABELS, resolveStepApprover } from '../utils/approvers';
 import { MEMO_WORKFLOW_ID } from '../utils/memo';
+import { isOfferedForm } from '../utils/forms';
 
 export const WorkflowBuilderView: React.FC = () => {
   const {
@@ -37,7 +38,7 @@ export const WorkflowBuilderView: React.FC = () => {
     employees,
     canAccessTab,
     setActiveTab,
-    setActiveDeptFilter,
+    setFormBuilder,
     menuPermissions,
     departments,
     showToast,
@@ -57,6 +58,13 @@ export const WorkflowBuilderView: React.FC = () => {
   };
 
   const [activeStepEditingId, setActiveStepEditingId] = useState<string | null>(null);
+
+  // Only the flows of forms still on offer are listed; open on the first of them
+  const offeredWorkflows = workflows.filter(wf => menuPermissions.some(f => f.workflowId === wf.id && isOfferedForm(f)));
+  const isListed = offeredWorkflows.some(wf => wf.id === selectedWorkflowId);
+  useEffect(() => {
+    if (!isListed && offeredWorkflows[0]) setSelectedWorkflowId(offeredWorkflows[0].id);
+  }, [isListed, offeredWorkflows[0]?.id]);
 
   if (!activeWorkflow) return null;
 
@@ -101,7 +109,7 @@ export const WorkflowBuilderView: React.FC = () => {
             onChange={e => setSelectedWorkflowId(e.target.value)}
             className="w-full md:w-auto px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:outline-hidden focus:border-red-500 shadow-xs"
           >
-            {workflows.map(wf => (
+            {offeredWorkflows.map(wf => (
               <option key={wf.id} value={wf.id}>
                 {wf.formTitle}
               </option>
@@ -190,13 +198,10 @@ export const WorkflowBuilderView: React.FC = () => {
             </p>
             <button
               type="button"
-              onClick={() => {
-                setActiveDeptFilter(builtForm.ownerDepartmentId);
-                setActiveTab('department_view');
-              }}
+              onClick={() => setFormBuilder({ deptId: builtForm.ownerDepartmentId, form: builtForm })}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
             >
-              ไปที่หน้า {builtFormDept?.nameEn ?? 'หน่วยงาน'} เพื่อแก้ไขแบบฟอร์ม
+              เปิดตัวสร้างแบบฟอร์ม
             </button>
           </div>
         ) : (

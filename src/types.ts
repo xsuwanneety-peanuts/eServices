@@ -155,7 +155,10 @@ export interface DocumentRequest {
   itRequest?: ItRequestData;
 }
 
-/** One ticked line of the IT & Request Form: what it concerns, its asset number and the need. */
+/**
+ * One ticked line of the IT & Request Form: what it concerns and the need. Only computers
+ * and monitors carry an asset number.
+ */
 export interface ItRequestItem {
   type: string;
   assetNo: string;
@@ -195,11 +198,11 @@ export interface ItAcceptance {
 }
 
 export interface ItRequestData {
-  /** Login name of the requester ("User" on the form). */
+  /** The requester's e-mail (the "User" line of the paper form). */
   userLogin: string;
   phone: string;
-  /** ผู้ครอบครองทรัพย์สิน */
-  assetHolder: string;
+  /** ผู้ครอบครองทรัพย์สิน: no longer asked for; kept so earlier requests still show it. */
+  assetHolder?: string;
   location: string;
   items: ItRequestItem[];
   /** สาเหตุ / อาการ */

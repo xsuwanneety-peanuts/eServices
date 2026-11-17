@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { DocumentRequest } from '../types';
-import { MEMO_CLOSING_LINE, shortThaiDate } from '../utils/memo';
+import { MEMO_CLOSING_LINE, memoStepTitle, shortThaiDate } from '../utils/memo';
 import companyLogo from '../assets/company-logo.png';
 
 // A4 at 96 dpi, the same width the e-Slip PDF is drawn at
@@ -93,7 +93,7 @@ export const MemoDocument = forwardRef<HTMLDivElement, MemoDocumentProps>(({ req
               const returned = step.status === 'rejected';
               return (
                 <td key={idx} className="border border-slate-900 px-2 py-3 text-center align-top">
-                  <p className="font-bold">{step.stepTitle}</p>
+                  <p className="font-bold">{memoStepTitle(step.stepTitle)}</p>
                   <div className="h-14 flex items-center justify-center">
                     {signed ? (
                       <span className="text-emerald-700 font-bold text-xs border border-emerald-600 rounded px-2 py-0.5">

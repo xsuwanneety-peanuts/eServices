@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
-import { IT_ITEM_TYPES } from '../utils/itRequest';
+import { IT_ITEM_TYPES, IT_ITEM_WITH_ASSET_NO } from '../utils/itRequest';
 import { thaiDate } from '../utils/memo';
 import { AlertTriangle, ArrowRight, Lock, Send, X } from 'lucide-react';
 
@@ -14,9 +14,7 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
   const workflow = workflows.find(w => w.id === form.workflowId);
   const dept = departments.find(d => d.id === currentUser.departmentId);
 
-  const [userLogin, setUserLogin] = useState(currentUser.email.split('@')[0]);
   const [phone, setPhone] = useState('');
-  const [assetHolder, setAssetHolder] = useState(currentUser.name);
   const [location, setLocation] = useState('');
   const [items, setItems] = useState<Record<string, ItemDraft>>({});
   const [symptom, setSymptom] = useState('');
@@ -40,7 +38,7 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
     if (!workflow) return setError('แบบฟอร์มนี้ยังไม่มีขั้นตอนอนุมัติ กรุณาติดต่อผู้ดูแลระบบ');
     const chosen = IT_ITEM_TYPES.filter(type => items[type]?.checked).map(type => ({
       type,
-      assetNo: items[type].assetNo.trim(),
+      assetNo: type === IT_ITEM_WITH_ASSET_NO ? items[type].assetNo.trim() : '',
       detail: items[type].detail.trim(),
     }));
     if (chosen.length === 0) return setError('กรุณาเลือกรายการอย่างน้อย 1 รายการ');
@@ -53,9 +51,8 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
       itilCategory: 'service_request',
       formId: form.id,
       itRequest: {
-        userLogin: userLogin.trim(),
+        userLogin: currentUser.email,
         phone: phone.trim(),
-        assetHolder: assetHolder.trim(),
         location: location.trim(),
         items: chosen,
         symptom: symptom.trim(),
@@ -116,10 +113,11 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
               </p>
             </div>
             <div>
-              <label htmlFor="itr-user" className={labelClass}>
-                User
-              </label>
-              <input id="itr-user" value={userLogin} onChange={e => setUserLogin(e.target.value)} className={inputClass} />
+              <span className={labelClass}>E-mail</span>
+              <p className={lockedClass}>
+                <Lock className="w-3 h-3 shrink-0" />
+                <span className="truncate">{currentUser.email}</span>
+              </p>
             </div>
             <div>
               <span className={labelClass}>วันที่ออกใบสั่งงาน</span>
@@ -146,17 +144,6 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
                 className={inputClass}
               />
             </div>
-            <div className="sm:col-span-2">
-              <label htmlFor="itr-holder" className={labelClass}>
-                ผู้ครอบครองทรัพย์สิน
-              </label>
-              <input
-                id="itr-holder"
-                value={assetHolder}
-                onChange={e => setAssetHolder(e.target.value)}
-                className={inputClass}
-              />
-            </div>
           </div>
 
           {/* Checklist: tick what the job concerns, with its asset number and the need */}
@@ -178,19 +165,22 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
                     </label>
                     {item?.checked && (
                       <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 pl-6">
-                        <input
-                          aria-label={`ทะเบียนฯ ของ ${type}`}
-                          value={item.assetNo}
-                          onChange={e => setItem(type, { assetNo: e.target.value })}
-                          placeholder="ทะเบียนฯ"
-                          className={inputClass}
-                        />
+                        {/* Only a computer or monitor is identified by its asset number */}
+                        {type === IT_ITEM_WITH_ASSET_NO && (
+                          <input
+                            aria-label={`เลขทะเบียนของ ${type}`}
+                            value={item.assetNo}
+                            onChange={e => setItem(type, { assetNo: e.target.value })}
+                            placeholder="เลขทะเบียน"
+                            className={inputClass}
+                          />
+                        )}
                         <input
                           aria-label={`รายละเอียดของ ${type}`}
                           value={item.detail}
                           onChange={e => setItem(type, { detail: e.target.value })}
                           placeholder={idx === IT_ITEM_TYPES.length - 1 ? 'ระบุ' : 'รายละเอียด / ระบุความต้องการ'}
-                          className={`${inputClass} sm:col-span-2`}
+                          className={`${inputClass} ${type === IT_ITEM_WITH_ASSET_NO ? 'sm:col-span-2' : 'sm:col-span-3'}`}
                         />
                       </div>
                     )}

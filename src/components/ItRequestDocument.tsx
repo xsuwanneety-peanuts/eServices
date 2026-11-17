@@ -98,7 +98,7 @@ export const ItRequestDocument = forwardRef<HTMLDivElement, ItRequestDocumentPro
           {/* Part 1: requester */}
           <div className="flex items-center justify-between border-b border-slate-900">
             <p className={sectionTitle}>
-              1. ส่วนของผู้ออกใบสั่งงาน User :- <Blank>{data.userLogin}</Blank>
+              1. ส่วนของผู้ออกใบสั่งงาน E-mail :- <Blank>{data.userLogin}</Blank>
             </p>
             <p className="px-2">
               วันที่ออกใบสั่งงาน <Blank>{issued.date}</Blank> เวลา <Blank>{issued.time}</Blank> น.
@@ -117,9 +117,11 @@ export const ItRequestDocument = forwardRef<HTMLDivElement, ItRequestDocumentPro
               </p>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <p className="flex-1 min-w-[40%]">
-                ผู้ครอบครองทรัพย์สิน : <Blank>{data.assetHolder}</Blank>
-              </p>
+              {data.assetHolder && (
+                <p className="flex-1 min-w-[40%]">
+                  ผู้ครอบครองทรัพย์สิน : <Blank>{data.assetHolder}</Blank>
+                </p>
+              )}
               <p className="flex-1">
                 สถานที่ : <Blank>{data.location}</Blank>
               </p>
