@@ -107,6 +107,17 @@ export const useFirestoreCollection = <T extends WithId>(name: string, onWriteEr
 };
 
 /**
+ * True the first time it is called for a marker in a project, false ever after: for a
+ * one-time change to data that is already there.
+ */
+export const markOnce = async (markerId: string): Promise<boolean> => {
+  const marker = doc(db, 'meta', markerId);
+  if ((await getDoc(marker)).exists()) return false;
+  await setDoc(marker, { doneAt: serverTimestamp() });
+  return true;
+};
+
+/**
  * Fill an empty project with starting data, once. A marker document records that seeding
  * happened, so deleting items later never brings the samples back.
  *

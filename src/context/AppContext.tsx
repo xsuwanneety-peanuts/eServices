@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useMemo } from 'react';
 import {
   DepartmentId,
   DepartmentInfo,
@@ -22,7 +22,10 @@ import {
 import {
   MEMO_FORM,
   MEMO_SEED_MARKER,
+  MEMO_TITLES_MARKER,
   MEMO_WORKFLOW,
+  MEMO_WORKFLOW_ID,
+  withCurrentMemoWording,
   memoAnswers,
   memoDetails,
   nextMemoNo,
@@ -49,7 +52,7 @@ import {
 import { resolveStepApprover } from '../utils/approvers';
 import { isOfferedForm } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
-import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
+import { markOnce, seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
 import { SEED_SAMPLE_DATA } from '../lib/firebase';
 import { CustomFormInput, FORM_CODE_PREFIX } from '../utils/forms';
@@ -410,6 +413,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       1100
     ).catch(handleWriteError);
   }, [isAdminLogin, employeesLoaded]);
+
+  // A memo form saved with the first wording ("CFO อนุมัติ", "CEO อนุมัติ") is reworded once
+  const hasMemoFlow = workflows.some(w => w.id === MEMO_WORKFLOW_ID);
+  const memoRewordStarted = useRef(false);
+  useEffect(() => {
+    if (!isAdminLogin || !workflowsLoaded || !permissionsLoaded || !hasMemoFlow || memoRewordStarted.current) return;
+    memoRewordStarted.current = true;
+    markOnce(MEMO_TITLES_MARKER)
+      .then(first => {
+        if (!first) return;
+        setWorkflows(prev => prev.map(withCurrentMemoWording.workflow));
+        setMenuPermissions(prev => prev.map(withCurrentMemoWording.form));
+      })
+      .catch(handleWriteError);
+  }, [isAdminLogin, workflowsLoaded, permissionsLoaded, hasMemoFlow]);
 
   // ---- Employee Directory ----
   const departmentLabel = (deptId: DepartmentId) => {
