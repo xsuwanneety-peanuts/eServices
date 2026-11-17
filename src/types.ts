@@ -281,12 +281,17 @@ export interface MenuItemPermission {
   menuCode: string;
   menuName: string;
   category: string;
-  /** Department that provides the form (its forms appear on that department's page). */
+  /**
+   * Department behind a built-in form. A form made in the form builder is a shared one with no
+   * owner: this only records the department of whoever made it, and is not shown.
+   */
   ownerDepartmentId: DepartmentId;
   // ---- Set on forms a department builds itself (the original IT forms have their own screen) ----
   description?: string;
   fields?: FormFieldDefinition[];
   workflowId?: string;
+  /** Start of the request number for this form, e.g. 'Ticket' gives Ticket-2026-0001 (default REQ). */
+  docPrefix?: string;
   /** A built-in form with its own screen and print layout (not made in the form builder). */
   template?: 'memo' | 'it_request';
   /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */

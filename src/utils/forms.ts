@@ -33,7 +33,24 @@ export interface CustomFormInput {
   /** Approval steps after the requester, in order. */
   steps: { id: string; title: string; approverType: StepApproverType; approverEmployeeId?: string }[];
   audience: FormAudience;
+  /** Start of the request number; empty means the default. */
+  docPrefix: string;
 }
+
+/** Request numbers read <prefix>-<year>-<running>, e.g. REQ-2026-0007 or Ticket-2026-0001. */
+export const DEFAULT_DOC_PREFIX = 'REQ';
+export const isValidDocPrefix = (prefix: string) => /^[A-Za-z][A-Za-z0-9]{1,11}$/.test(prefix);
+
+/** The next free number for a prefix in the given year, counted over the requests that already use it. */
+export const nextRequestCode = (prefix: string, codes: string[], now = new Date()): string => {
+  const start = `${prefix || DEFAULT_DOC_PREFIX}-${now.getFullYear()}-`;
+  const last = codes.reduce((max, code) => {
+    if (!code.toLowerCase().startsWith(start.toLowerCase())) return max;
+    const n = Number(code.slice(start.length));
+    return Number.isInteger(n) && n > max ? n : max;
+  }, 0);
+  return `${start}${String(last + 1).padStart(4, '0')}`;
+};
 
 /**
  * Forms people can fill in: the built-in ones with their own screen (template) and the ones
