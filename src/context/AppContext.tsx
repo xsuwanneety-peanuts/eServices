@@ -214,9 +214,8 @@ interface AppContextType {
 
   // Permissions (Top-Right Screen: ตั้งค่าสิทธิ์เข้าถึง)
   menuPermissions: MenuItemPermission[];
-  togglePermission: (menuId: string, deptId: DepartmentId) => void;
-  /** Open a form to every department (true) or close it to all of them (false). */
-  setFormAccessForAll: (menuId: string, allowed: boolean) => void;
+  /** Sets which departments may use the given forms: form id → department → allowed. */
+  setFormsAccess: (changes: Record<string, Record<DepartmentId, boolean>>) => void;
   /** Whether the signed-in user may build forms for this department (its members, and admins). */
   canManageForms: (deptId: DepartmentId) => boolean;
   /** Whether the signed-in user may edit or delete this department-built form. */
@@ -224,7 +223,6 @@ interface AppContextType {
   /** Create (no existingId) or update a department-built form and its approval workflow. */
   saveCustomForm: (deptId: DepartmentId, input: CustomFormInput, existingId?: string) => void;
   deleteCustomForm: (formId: string) => void;
-  resetPermissions: () => void;
   isMenuPermittedForUser: (menuCode: string) => boolean;
 
   // Workflows (Bottom-Right Screen: ตั้งค่า Flow อนุมัติ & แจ้งเตือนอีเมล)
@@ -514,23 +512,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const offeredForms = menuPermissions.filter(f => isOfferedForm(f) && isMenuPermittedForUser(f.menuCode));
 
-  // Toggle permission in the matrix
-  const togglePermission = (menuId: string, deptId: DepartmentId) => {
+  // Set which departments may use one or more forms (the access page shows its own feedback)
+  const setFormsAccess = (changes: Record<string, Record<DepartmentId, boolean>>) => {
     setMenuPermissions(prev =>
-      prev.map(item => {
-        if (item.id === menuId) {
-          return {
-            ...item,
-            allowedDepartments: {
-              ...item.allowedDepartments,
-              [deptId]: !item.allowedDepartments[deptId],
-            },
-          };
-        }
-        return item;
-      })
+      prev.map(form => (changes[form.id] ? { ...form, allowedDepartments: changes[form.id] } : form))
     );
-    showToast('ปรับปรุงสิทธิ์การเข้าถึงเรียบร้อยแล้ว', 'info');
   };
 
   // ---- Department-built forms ----
@@ -669,34 +655,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMenuPermissions(prev => prev.filter(f => f.id !== formId));
     if (form.workflowId) setWorkflows(prev => prev.filter(w => w.id !== form.workflowId));
     showToast(`ลบแบบฟอร์ม "${form.menuName}" แล้ว`, 'info');
-  };
-
-  const setFormAccessForAll = (menuId: string, allowed: boolean) => {
-    setMenuPermissions(prev =>
-      prev.map(item =>
-        item.id === menuId
-          ? {
-              ...item,
-              allowedDepartments: Object.fromEntries(
-                CORPORATE_DEPARTMENTS.map(d => [d.id, allowed])
-              ) as Record<DepartmentId, boolean>,
-            }
-          : item
-      )
-    );
-    showToast(allowed ? 'เปิดสิทธิ์ให้ทุกหน่วยงานแล้ว' : 'ปิดสิทธิ์ทุกหน่วยงานแล้ว', 'info');
-  };
-
-  // Puts the standard forms' access back to the defaults. Forms that departments built
-  // themselves have no default, so they are left exactly as they are.
-  const resetPermissions = () => {
-    setMenuPermissions(prev =>
-      prev.map(form => {
-        const standard = INITIAL_MENU_PERMISSIONS.find(f => f.id === form.id);
-        return standard ? { ...form, allowedDepartments: standard.allowedDepartments } : form;
-      })
-    );
-    showToast('รีเซ็ตสิทธิ์ของแบบฟอร์มมาตรฐานแล้ว (แบบฟอร์มที่หน่วยงานสร้างเองไม่เปลี่ยน)', 'info');
   };
 
   // Active workflow
@@ -1250,13 +1208,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         saveArticle,
         deleteArticle,
         menuPermissions,
-        togglePermission,
-        setFormAccessForAll,
+        setFormsAccess,
         canManageForms,
         canEditForm,
         saveCustomForm,
         deleteCustomForm,
-        resetPermissions,
         isMenuPermittedForUser,
         workflows,
         selectedWorkflowId,
