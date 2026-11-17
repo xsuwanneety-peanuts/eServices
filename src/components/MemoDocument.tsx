@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { DocumentRequest } from '../types';
 import { MEMO_CLOSING_LINE, memoStepTitle, shortThaiDate } from '../utils/memo';
+import { COMPANY_NAME_TH } from '../utils/itRequest';
 import companyLogo from '../assets/company-logo.png';
 
 // A4 at 96 dpi, the same width the e-Slip PDF is drawn at
@@ -12,110 +13,126 @@ interface MemoDocumentProps {
   forExport?: boolean;
 }
 
-/** Company logo at the top of the memo. */
-const MemoLogo: React.FC = () => (
-  <img src={companyLogo} alt="Jaymart Insurance" className="mx-auto w-24 h-24 object-contain" />
+/** One labelled line of the memo heading, e.g. "เรื่อง  ขออนุมัติ…". */
+const HeadingLine: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({
+  label,
+  children,
+  className = '',
+}) => (
+  <div className={`flex gap-3 ${className}`}>
+    <span className="w-12 shrink-0 font-bold">{label}</span>
+    <span className="min-w-0 break-words">{children}</span>
+  </div>
 );
 
-/** The internal memorandum (บันทึกภายใน) as it is printed: shown in the window and drawn into the PDF. */
+/** Text typed on the memo, one indented paragraph per line (a blank line leaves a gap). */
+const Paragraphs: React.FC<{ text: string }> = ({ text }) => (
+  <div className="mt-1 space-y-0.5">
+    {text.split('\n').map((line, i) =>
+      line.trim() ? (
+        <p key={i} className="indent-8 break-words">
+          {line.trim()}
+        </p>
+      ) : (
+        <div key={i} className="h-2" />
+      )
+    )}
+  </div>
+);
+
+/**
+ * The internal memorandum (บันทึกภายใน) as it is printed: shown in the window and drawn into
+ * the PDF. Laid out like a letter, with rules instead of boxes.
+ */
 export const MemoDocument = forwardRef<HTMLDivElement, MemoDocumentProps>(({ request, forExport = false }, ref) => {
   const memo = request.memo;
   if (!memo) return null;
 
-  const cell = 'border border-slate-900 px-3 py-2 align-top';
-  const label = 'font-bold mr-2';
-  const section = 'border border-slate-900 px-4 py-3';
+  // On screen the layout follows the window width; in the PDF it always uses the wide layout
+  const layout = (screen: string, pdf: string) => (forExport ? pdf : screen);
+  const signers = request.steps.length;
 
   return (
     <div
       ref={ref}
-      className={`${forExport ? 'p-14' : 'p-6 sm:p-10 overflow-y-auto'} font-sans bg-white text-slate-900 text-sm`}
+      className={`${layout('p-6 sm:p-10 overflow-y-auto', 'px-16 py-14')} font-sans bg-white text-slate-900 text-sm leading-relaxed`}
       style={forExport ? { width: A4_WIDTH_PX } : undefined}
     >
-      <MemoLogo />
-
-      {/* Addressee, sender, date, number and subject */}
-      <table className="w-full mt-5 border-collapse">
-        <tbody>
-          <tr>
-            <td className={`${cell} w-[70%]`}>
-              <span className={label}>เรียน</span>
-              {memo.to}
-            </td>
-            <td className={cell}>
-              <span className={label}>วันที่</span>
-              {memo.date}
-            </td>
-          </tr>
-          <tr>
-            <td className={cell}>
-              <span className={label}>จาก</span>
-              {request.requestorName}
-            </td>
-            <td className={cell}>
-              <span className={label}>ที่</span>
-              {memo.docNo}
-            </td>
-          </tr>
-          <tr>
-            <td className={cell} colSpan={2}>
-              <span className={label}>เรื่อง</span>
-              {request.title}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <p className="my-4 text-center">
-        <span className="inline-block border border-slate-900 px-3 py-0.5 text-base font-bold">บันทึกภายใน</span>
-      </p>
-
-      <div className="space-y-2">
-        <div className={`${section} min-h-[130px]`}>
-          <p className="font-bold mb-1">สรุปความเป็นมา</p>
-          <p className="leading-relaxed whitespace-pre-line break-words">{memo.background}</p>
+      {/* Letterhead: company on the left, document type on the right */}
+      <div className="flex items-end justify-between gap-4 pb-3 border-b-2 border-slate-900">
+        <div className="flex items-center gap-3 min-w-0">
+          <img src={companyLogo} alt="Jaymart Insurance" className="w-14 h-14 object-contain shrink-0" />
+          <p className={`${layout('hidden sm:block', '')} text-xs font-semibold text-slate-600`}>{COMPANY_NAME_TH}</p>
         </div>
-        <div className={`${section} min-h-[200px]`}>
-          <p className="font-bold mb-1">สรุปสาระสำคัญ</p>
-          <p className="leading-relaxed whitespace-pre-line break-words">{memo.summary}</p>
-        </div>
-        <div className={section}>
-          <p className="indent-8">{MEMO_CLOSING_LINE}</p>
+        <div className="text-right shrink-0">
+          <p className="text-2xl font-bold tracking-wide">บันทึกภายใน</p>
+          <p className="text-[11px] text-slate-500 tracking-widest uppercase">Internal Memorandum</p>
         </div>
       </div>
 
-      {/* Signature boxes: one per step of the approval flow, in signing order */}
-      <table className="w-full mt-6 border-collapse table-fixed">
-        <tbody>
-          <tr>
-            {request.steps.map((step, idx) => {
-              const signed = step.status === 'approved';
-              const returned = step.status === 'rejected';
-              return (
-                <td key={idx} className="border border-slate-900 px-2 py-3 text-center align-top">
-                  <p className="font-bold">{memoStepTitle(step.stepTitle)}</p>
-                  <div className="h-14 flex items-center justify-center">
-                    {signed ? (
-                      <span className="text-emerald-700 font-bold text-xs border border-emerald-600 rounded px-2 py-0.5">
-                        ✓ {idx === 0 ? 'จัดทำแล้ว' : 'อนุมัติแล้ว'}
-                      </span>
-                    ) : returned ? (
-                      <span className="text-rose-700 font-bold text-xs">ตีกลับ</span>
-                    ) : (
-                      <span className="text-slate-300 text-xs">รอลงนาม</span>
-                    )}
-                  </div>
-                  <p className="text-xs font-semibold break-words">({step.approverName})</p>
-                  <p className="text-[11px] text-slate-600 break-words">{step.approverRole}</p>
-                  <p className="mt-2 text-xs">
-                    วันที่ {signed ? shortThaiDate(step.timestamp) : '___/___/______'}
-                  </p>
-                </td>
-              );
-            })}
-          </tr>
-        </tbody>
-      </table>
+      {/* Number, date, addressee, sender and subject */}
+      <div className="mt-5 space-y-1.5">
+        <div className={`grid ${layout('grid-cols-1 sm:grid-cols-2', 'grid-cols-2')} gap-x-8 gap-y-1.5`}>
+          <HeadingLine label="ที่">{memo.docNo}</HeadingLine>
+          <HeadingLine label="วันที่">{memo.date}</HeadingLine>
+        </div>
+        <HeadingLine label="เรียน">{memo.to}</HeadingLine>
+        <HeadingLine label="จาก">
+          {request.requestorName}
+          {request.requestorDepartment && (
+            <span className="text-slate-500"> · {request.requestorDepartment.replace(/\s*\(.*\)$/, '')}</span>
+          )}
+        </HeadingLine>
+        <HeadingLine label="เรื่อง" className="pt-1.5 mt-1.5 border-t border-slate-300 font-semibold">
+          {request.title}
+        </HeadingLine>
+      </div>
+
+      {/* Body */}
+      <div className="mt-6 space-y-5">
+        <section>
+          <h3 className="font-bold">สรุปความเป็นมา</h3>
+          <Paragraphs text={memo.background} />
+        </section>
+        <section>
+          <h3 className="font-bold">สรุปสาระสำคัญ</h3>
+          <Paragraphs text={memo.summary} />
+        </section>
+        <p className="indent-8">{MEMO_CLOSING_LINE}</p>
+      </div>
+
+      {/* Signatures: one per step of the approval flow, in signing order */}
+      <div
+        className={`mt-12 grid gap-x-6 gap-y-8 ${
+          forExport ? '' : signers > 2 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'
+        }`}
+        style={forExport ? { gridTemplateColumns: `repeat(${Math.min(signers, 4)}, minmax(0, 1fr))` } : undefined}
+      >
+        {request.steps.map((step, idx) => {
+          const signed = step.status === 'approved';
+          const returned = step.status === 'rejected';
+          return (
+            <div key={idx} className="text-center text-xs">
+              <p className="font-bold text-[13px]">{memoStepTitle(step.stepTitle)}</p>
+              <div className="h-12 flex items-end justify-center pb-1">
+                {signed ? (
+                  <span className="text-emerald-700 font-bold">✓ {idx === 0 ? 'จัดทำแล้ว' : 'อนุมัติแล้ว'}</span>
+                ) : returned ? (
+                  <span className="text-rose-700 font-bold">ตีกลับ</span>
+                ) : (
+                  <span className="text-slate-300">รอลงนาม</span>
+                )}
+              </div>
+              <div className="mx-auto w-11/12 border-t border-dotted border-slate-500" />
+              <p className="mt-1.5 font-semibold break-words">({step.approverName})</p>
+              <p className="text-[11px] text-slate-600 break-words">{step.approverRole}</p>
+              <p className="mt-1 text-[11px] text-slate-600">
+                วันที่ {signed ? shortThaiDate(step.timestamp) : '____/____/______'}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 });

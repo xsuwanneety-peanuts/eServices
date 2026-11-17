@@ -4,7 +4,7 @@ import { DepartmentId, UserPersona } from '../types';
 import { ROLE_LABELS, wouldCreateCycle } from '../utils/approvers';
 import { ADMIN_EMAILS } from '../lib/firebase';
 import { isOfferedForm } from '../utils/forms';
-import { Contact, Pencil, Plus, Search, SearchX, Users, X, AlertTriangle } from 'lucide-react';
+import { Contact, Pencil, Plus, Search, SearchX, Trash2, Users, X, AlertTriangle } from 'lucide-react';
 
 type Role = UserPersona['role'];
 const ROLES: Role[] = ['employee', 'approver', 'manager', 'director'];
@@ -19,7 +19,7 @@ const ROLE_BADGE: Record<Role, string> = {
 };
 
 export const EmployeeDirectoryView: React.FC = () => {
-  const { employees, updateEmployee, departments, showToast } = useApp();
+  const { employees, updateEmployee, deleteEmployee, departments, currentUser, workflows, showToast } = useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<DepartmentId | 'all'>('all');
@@ -50,6 +50,88 @@ export const EmployeeDirectoryView: React.FC = () => {
       'success'
     );
   };
+
+  // The signed-in person and admin accounts cannot be switched off or removed: that would lock
+  // the system's own administrators out
+  const isProtected = (employee: UserPersona) => employee.id === currentUser.id || isAdminAccount(employee.email);
+  const protectedReason = 'บัญชีผู้ดูแลระบบและบัญชีของตัวเอง ปิดการใช้งานหรือลบไม่ได้';
+
+  const toggleActive = (employee: UserPersona) => {
+    if (employee.disabled) {
+      updateEmployee(employee.id, { disabled: undefined });
+      showToast(`เปิดใช้งาน ${employee.name} แล้ว`, 'success');
+      return;
+    }
+    if (
+      !window.confirm(
+        `ปิดการใช้งาน "${employee.name}"?\n\nชื่อยังอยู่ใน Employee Directory และเอกสารทั้งหมดยังอยู่ แต่บัญชีนี้จะเข้าใช้งานระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`
+      )
+    ) {
+      return;
+    }
+    updateEmployee(employee.id, { disabled: true });
+    showToast(`ปิดการใช้งาน ${employee.name} แล้ว`, 'info');
+  };
+
+  const removeEmployee = (employee: UserPersona) => {
+    const reports = employees.filter(e => e.reportsToId === employee.id).length;
+    const steps = workflows.reduce(
+      (count, w) => count + w.steps.filter(step => step.approverEmployeeId === employee.id).length,
+      0
+    );
+    const effects = [
+      reports > 0 && `• ลูกทีม ${reports} คนจะไม่มี Report to ต้องตั้งใหม่`,
+      steps > 0 && `• ขั้นตอนอนุมัติ ${steps} ขั้นที่ระบุคนนี้จะไม่มีผู้อนุมัติ ต้องตั้งใหม่ที่หน้า Flow อนุมัติ`,
+    ].filter(Boolean);
+    if (
+      !window.confirm(
+        `ลบ "${employee.name}" ออกจากระบบถาวร?\n\nรายชื่อจะหายจาก Employee Directory และบัญชีนี้จะเข้าใช้งานไม่ได้ เอกสารที่เคยยื่นหรืออนุมัติไว้ยังอยู่ครบ${
+          effects.length ? `\n\n${effects.join('\n')}` : ''
+        }\n\nการลบนี้ย้อนกลับไม่ได้`
+      )
+    ) {
+      return;
+    }
+    deleteEmployee(employee.id);
+    showToast(`ลบ ${employee.name} ออกจากระบบแล้ว`, 'info');
+  };
+
+  const statusButton = (employee: UserPersona) => (
+    <button
+      type="button"
+      onClick={() => toggleActive(employee)}
+      disabled={isProtected(employee)}
+      aria-pressed={!employee.disabled}
+      title={
+        isProtected(employee)
+          ? protectedReason
+          : employee.disabled
+            ? 'กดเพื่อเปิดใช้งานบัญชีนี้'
+            : 'กดเพื่อปิดการใช้งานบัญชีนี้'
+      }
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors cursor-pointer disabled:cursor-not-allowed ${
+        employee.disabled
+          ? 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+          : 'bg-emerald-600 text-white hover:bg-emerald-700 disabled:hover:bg-emerald-600'
+      }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${employee.disabled ? 'bg-slate-400' : 'bg-white'}`} />
+      {employee.disabled ? 'ปิดการใช้งาน' : 'เปิดใช้งาน'}
+    </button>
+  );
+
+  const deleteButton = (employee: UserPersona, padding: string) => (
+    <button
+      type="button"
+      onClick={() => removeEmployee(employee)}
+      disabled={isProtected(employee)}
+      title={isProtected(employee) ? protectedReason : `ลบถาวร ${employee.name}`}
+      aria-label={`ลบถาวร ${employee.name}`}
+      className={`${padding} rounded-lg text-slate-400 hover:text-rose-700 hover:bg-rose-50 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:bg-transparent`}
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  );
 
   return (
     <div className="space-y-5">
@@ -115,7 +197,7 @@ export const EmployeeDirectoryView: React.FC = () => {
       {/* Directory table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="hidden lg:block overflow-x-auto">
-          <table className="w-full text-left text-xs min-w-[880px]">
+          <table className="w-full text-left text-xs min-w-[1020px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <th className="py-3 px-4">พนักงาน</th>
@@ -123,8 +205,9 @@ export const EmployeeDirectoryView: React.FC = () => {
                 <th className="py-3 px-3">หน่วยงาน</th>
                 <th className="py-3 px-3 min-w-[220px]">Report to</th>
                 <th className="py-3 px-3 text-center">ลูกทีม</th>
-                <th className="py-3 px-3 w-12">
-                  <span className="sr-only">แก้ไข</span>
+                <th className="py-3 px-3">สถานะ</th>
+                <th className="py-3 px-3 w-20">
+                  <span className="sr-only">แก้ไข / ลบ</span>
                 </th>
               </tr>
             </thead>
@@ -133,12 +216,15 @@ export const EmployeeDirectoryView: React.FC = () => {
                 const dept = departments.find(d => d.id === employee.departmentId);
                 const directReports = employees.filter(e => e.reportsToId === employee.id).length;
                 const managerOptions = employees.filter(
-                  e => e.id !== employee.id && !wouldCreateCycle(employee.id, e.id, employees)
+                  e =>
+                    e.id !== employee.id &&
+                    (!e.disabled || e.id === employee.reportsToId) &&
+                    !wouldCreateCycle(employee.id, e.id, employees)
                 );
                 return (
-                  <tr key={employee.id} className="hover:bg-slate-50/60">
+                  <tr key={employee.id} className={employee.disabled ? 'bg-slate-50' : 'hover:bg-slate-50/60'}>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
+                      <div className={`flex items-center gap-3 ${employee.disabled ? 'opacity-50' : ''}`}>
                         <img
                           src={employee.avatar}
                           alt=""
@@ -197,15 +283,19 @@ export const EmployeeDirectoryView: React.FC = () => {
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
+                    <td className="py-3 px-3">{statusButton(employee)}</td>
                     <td className="py-3 px-3">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(employee)}
-                        title={`แก้ไขข้อมูล ${employee.name}`}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 cursor-pointer"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(employee)}
+                          title={`แก้ไขข้อมูล ${employee.name}`}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 cursor-pointer"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {deleteButton(employee, 'p-1.5')}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -220,7 +310,10 @@ export const EmployeeDirectoryView: React.FC = () => {
             const dept = departments.find(d => d.id === employee.departmentId);
             const directReports = employees.filter(e => e.reportsToId === employee.id).length;
             const managerOptions = employees.filter(
-              e => e.id !== employee.id && !wouldCreateCycle(employee.id, e.id, employees)
+              e =>
+                e.id !== employee.id &&
+                (!e.disabled || e.id === employee.reportsToId) &&
+                !wouldCreateCycle(employee.id, e.id, employees)
             );
             return (
               <div key={employee.id} className="p-4 space-y-3 text-xs">
@@ -230,7 +323,7 @@ export const EmployeeDirectoryView: React.FC = () => {
                     alt=""
                     className="w-10 h-10 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
                   />
-                  <div className="min-w-0 flex-1">
+                  <div className={`min-w-0 flex-1 ${employee.disabled ? 'opacity-50' : ''}`}>
                     <p className="font-bold text-slate-900 text-sm truncate">{employee.name}</p>
                     <p className="text-slate-400 font-mono text-[11px] truncate">{employee.email}</p>
                     <p className="text-slate-700 mt-1">{employee.position}</p>
@@ -257,7 +350,9 @@ export const EmployeeDirectoryView: React.FC = () => {
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
+                  {deleteButton(employee, 'p-2 shrink-0')}
                 </div>
+                <div>{statusButton(employee)}</div>
                 <div>
                   <label
                     htmlFor={`reports-to-${employee.id}`}
@@ -325,7 +420,10 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
   const allowedForms = menuPermissions.filter(f => isOfferedForm(f) && f.allowedDepartments[departmentId]);
 
   const managerOptions = employees.filter(
-    e => e.id !== employee?.id && (!employee || !wouldCreateCycle(employee.id, e.id, employees))
+    e =>
+      e.id !== employee?.id &&
+      (!e.disabled || e.id === employee?.reportsToId) &&
+      (!employee || !wouldCreateCycle(employee.id, e.id, employees))
   );
 
   const handleSubmit = (event: React.FormEvent) => {

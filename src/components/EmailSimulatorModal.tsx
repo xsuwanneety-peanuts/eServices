@@ -44,9 +44,18 @@ export const EmailSimulatorModal: React.FC = () => {
     : null;
 
   // Standard approval email, addressed to the approver recorded on the notification
+  const isDoneEmail = currentEmail?.kind === 'completed';
   const renderedEmail =
     currentEmail && matchedRequest
-      ? renderStepEmail(currentEmail.stepTitle, currentEmail.recipientName, matchedRequest)
+      ? isDoneEmail
+        ? {
+            subject: `[อนุมัติเรียบร้อย] ${matchedRequest.code}: ${matchedRequest.title}`,
+            body: `เรียน คุณ${currentEmail.recipientName}
+
+คำร้อง ${matchedRequest.code} "${matchedRequest.title}" ของคุณได้รับการอนุมัติครบทุกขั้นตอนแล้ว เมื่อ ${currentEmail.createdAt}
+ดูรายละเอียดและดาวน์โหลดเอกสารได้ในระบบ e-Service`,
+          }
+        : renderStepEmail(currentEmail.stepTitle, currentEmail.recipientName, matchedRequest)
       : null;
 
   const handleApprove = () => {
@@ -77,10 +86,10 @@ export const EmailSimulatorModal: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold tracking-tight">อีเมลขออนุมัติ</h3>
+                <h3 className="text-base font-bold tracking-tight">อีเมลจากระบบ</h3>
               </div>
               <p className="text-xs text-red-100">
-                ตัวอย่างอีเมลที่ระบบจะส่งถึงผู้อนุมัติ — ตอนนี้ยังไม่ได้ส่งออกนอกระบบ กดอนุมัติหรือตีกลับได้จากที่นี่
+                ตัวอย่างอีเมลที่ระบบจะส่ง (ขออนุมัติ และแจ้งผลเมื่ออนุมัติครบ) — ตอนนี้ยังไม่ได้ส่งออกนอกระบบ
               </p>
             </div>
           </div>
@@ -100,7 +109,7 @@ export const EmailSimulatorModal: React.FC = () => {
             <div className="p-3 border-b border-slate-200 bg-white">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Inbox className="w-3.5 h-3.5 text-red-600" />
-                อีเมลขออนุมัติถึงคุณ ({emailNotifications.length})
+                อีเมลถึงคุณ ({emailNotifications.length})
               </span>
             </div>
 
@@ -130,7 +139,11 @@ export const EmailSimulatorModal: React.FC = () => {
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       ถึง: {email.recipientName}
                     </p>
-                    {email.actionTaken ? (
+                    {email.kind === 'completed' ? (
+                      <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                        แจ้งผล: อนุมัติเรียบร้อย
+                      </span>
+                    ) : email.actionTaken ? (
                       <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
                         ดำเนินการแล้ว: {email.actionTaken === 'approved' ? 'อนุมัติแล้ว' : 'ตีกลับแล้ว'}
                       </span>
@@ -197,7 +210,7 @@ export const EmailSimulatorModal: React.FC = () => {
                       <span className="text-slate-500 block text-[11px]">{matchedRequest.requestorDepartment}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block">ขั้นตอนปัจจุบัน:</span>
+                      <span className="text-slate-400 block">{isDoneEmail ? 'สถานะ:' : 'ขั้นตอนปัจจุบัน:'}</span>
                       <span className="font-semibold text-amber-600">{currentEmail.stepTitle}</span>
                     </div>
                     {matchedRequest.amount && (
@@ -266,7 +279,13 @@ export const EmailSimulatorModal: React.FC = () => {
                       </button>
                     </div>
 
-                    {currentEmail.actionTaken ? (
+                    {isDoneEmail ? (
+                      <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-1" />
+                        <p className="text-xs font-bold text-emerald-800">คำร้องนี้อนุมัติครบทุกขั้นตอนแล้ว</p>
+                        <p className="text-[11px] text-emerald-600 mt-0.5">อีเมลแจ้งผล ไม่ต้องดำเนินการใดเพิ่ม</p>
+                      </div>
+                    ) : currentEmail.actionTaken ? (
                       <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
                         <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-1" />
                         <p className="text-xs font-bold text-emerald-800">

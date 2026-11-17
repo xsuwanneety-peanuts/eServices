@@ -32,8 +32,10 @@ export const FormBuilderModal: React.FC<{
   form: MenuItemPermission | null;
   onClose: () => void;
 }> = ({ deptId, form, onClose }) => {
-  const { departments, employees, workflows, saveCustomForm, deleteCustomForm } = useApp();
-  const dept = departments.find(d => d.id === deptId);
+  const { departments, employees, workflows, currentUser, saveCustomForm, deleteCustomForm } = useApp();
+  // "Own department" is that of the signed-in account, whoever made the form
+  const ownDeptId = currentUser.departmentId;
+  const dept = departments.find(d => d.id === ownDeptId);
   const isNew = form === null;
   const workflow = form?.workflowId ? workflows.find(w => w.id === form.workflowId) : undefined;
 
@@ -42,14 +44,17 @@ export const FormBuilderModal: React.FC<{
     ? 'all'
     : allowedCount === departments.length
       ? 'all'
-      : allowedCount === 1 && form.allowedDepartments[deptId]
+      : allowedCount === 1 && form.allowedDepartments[ownDeptId]
         ? 'own'
         : 'custom';
 
   const [name, setName] = useState(form?.menuName ?? '');
   const [description, setDescription] = useState(form?.description ?? '');
   const [docPrefix, setDocPrefix] = useState(form?.docPrefix ?? '');
+  // Set once: changing it later would split one form's requests over two number series
+  const prefixLocked = !!form?.docPrefix;
   const [audience, setAudience] = useState<FormAudience>(initialAudience);
+  const [requesterAddsSteps, setRequesterAddsSteps] = useState(!!form?.requesterAddsSteps);
   const [fields, setFields] = useState<FieldDraft[]>(
     form?.fields?.map(f => ({ ...f, optionsText: (f.options ?? []).join(', ') })) ?? [
       { id: newId('field'), label: 'รายละเอียด', type: 'textarea', required: true, optionsText: '' },
@@ -72,7 +77,8 @@ export const FormBuilderModal: React.FC<{
   const handleSave = () => {
     if (!name.trim()) return setError('กรุณาตั้งชื่อแบบฟอร์ม');
     const prefix = docPrefix.trim();
-    if (prefix && !isValidDocPrefix(prefix)) {
+    if (isNew && !prefix) return setError('กรุณาระบุคำนำหน้าเลขที่เอกสาร');
+    if (prefix && !prefixLocked && !isValidDocPrefix(prefix)) {
       return setError('คำนำหน้าเลขที่เอกสารใช้ได้เฉพาะตัวอักษรอังกฤษและตัวเลข 2–12 ตัว และต้องขึ้นต้นด้วยตัวอักษร');
     }
     if (fields.length === 0) return setError('แบบฟอร์มต้องมีช่องข้อมูลอย่างน้อย 1 ช่อง');
@@ -85,7 +91,9 @@ export const FormBuilderModal: React.FC<{
     if (fields.some(f => f.type === 'select' && options(f).length === 0)) {
       return setError('ช่องแบบตัวเลือกต้องมีตัวเลือกอย่างน้อย 1 รายการ (คั่นด้วยจุลภาค)');
     }
-    if (steps.length === 0) return setError('ต้องมีขั้นตอนอนุมัติอย่างน้อย 1 ขั้น');
+    if (steps.length === 0 && !requesterAddsSteps) {
+      return setError('ต้องมีขั้นตอนอนุมัติอย่างน้อย 1 ขั้น หรือเปิดให้ผู้ยื่นเพิ่มผู้ดำเนินการเอง');
+    }
     if (steps.some(s => !s.title.trim())) return setError('กรุณาตั้งชื่อขั้นตอนอนุมัติให้ครบ');
     if (steps.some(s => s.approverType === 'employee' && !s.approverEmployeeId)) {
       return setError('กรุณาเลือกพนักงานผู้อนุมัติให้ครบ');
@@ -98,6 +106,7 @@ export const FormBuilderModal: React.FC<{
         description: description.trim(),
         audience,
         docPrefix: prefix,
+        requesterAddsSteps,
         fields: fields.map(({ optionsText, ...f }) => ({
           ...f,
           label: f.label.trim(),
@@ -181,16 +190,17 @@ export const FormBuilderModal: React.FC<{
             </div>
             <div>
               <label htmlFor="fb-prefix" className="block font-semibold text-slate-700 mb-1">
-                คำนำหน้าเลขที่เอกสาร (ไม่บังคับ)
+                คำนำหน้าเลขที่เอกสาร {isNew && <span className="text-rose-600">*</span>}
               </label>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   id="fb-prefix"
                   value={docPrefix}
                   onChange={e => setDocPrefix(e.target.value)}
-                  placeholder={DEFAULT_DOC_PREFIX}
+                  placeholder={isNew ? 'เช่น Ticket' : DEFAULT_DOC_PREFIX}
                   maxLength={12}
-                  className={`${inputClass} max-w-40 font-mono`}
+                  disabled={prefixLocked}
+                  className={`${inputClass} max-w-40 font-mono disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed`}
                 />
                 <span className="text-slate-500">
                   เลขที่จะออกเป็น{' '}
@@ -200,6 +210,13 @@ export const FormBuilderModal: React.FC<{
                   นับลำดับแยกตามคำนำหน้าและปี
                 </span>
               </div>
+              <p className="mt-1 text-slate-500">
+                {prefixLocked
+                  ? 'ตั้งไว้แล้ว เปลี่ยนไม่ได้'
+                  : isNew
+                    ? 'ตั้งได้ครั้งเดียว บันทึกแล้วเปลี่ยนไม่ได้'
+                    : 'แบบฟอร์มนี้ยังไม่ได้ตั้ง (ใช้ REQ อยู่) ตั้งได้ครั้งเดียว บันทึกแล้วเปลี่ยนไม่ได้'}
+              </p>
             </div>
           </section>
 
@@ -391,6 +408,21 @@ export const FormBuilderModal: React.FC<{
               <Plus className="w-4 h-4" />
               เพิ่มขั้นตอนอนุมัติ
             </button>
+            <label className="mt-3 flex items-start gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={requesterAddsSteps}
+                onChange={e => setRequesterAddsSteps(e.target.checked)}
+                className="mt-0.5 w-3.5 h-3.5 rounded border-slate-300 text-red-600 cursor-pointer"
+              />
+              <span>
+                <span className="block font-semibold text-slate-800">ให้ผู้ยื่นเพิ่มผู้ดำเนินการเองตอนกรอก</span>
+                <span className="block text-slate-500">
+                  ผู้ยื่นเลือกพนักงานจากหน่วยงานใดก็ได้ กี่คนก็ได้ ตามลำดับที่ต้องการ ต่อท้ายขั้นตอนข้างบน
+                  (ถ้าไม่ต้องการขั้นตอนตายตัว ลบขั้นตอนข้างบนออกได้)
+                </span>
+              </span>
+            </label>
           </section>
 
           {/* Audience */}
@@ -400,7 +432,7 @@ export const FormBuilderModal: React.FC<{
               {(
                 [
                   ['all', 'ทุกหน่วยงาน'],
-                  ['own', `เฉพาะ ${dept?.nameEn ?? 'หน่วยงานเดียว'}`],
+                  ['own', `เฉพาะหน่วยงานของตัวเอง (${dept?.nameEn ?? currentUser.departmentName})`],
                   ...(initialAudience === 'custom' ? [['custom', 'ตามที่ตั้งไว้ในหน้าสิทธิ์เข้าถึง']] : []),
                 ] as [FormAudience, string][]
               ).map(([value, label]) => (
