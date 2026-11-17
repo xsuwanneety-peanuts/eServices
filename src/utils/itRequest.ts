@@ -29,6 +29,8 @@ export const IT_ITEM_TYPES = [
   'Backup / Restore',
   'อื่น ๆ',
 ];
+/** The only kind of item that is asked for an asset number. */
+export const IT_ITEM_WITH_ASSET_NO = IT_ITEM_TYPES[0];
 export const IT_IMPACTS = ['กระทบงานประจำ', 'ไม่กระทบงานประจำ', 'กระทบระบบคอมพิวเตอร์'];
 export const IT_ACTIONS = ['ซื้อ', 'ซ่อม', 'สร้าง', 'แก้ไข', 'โอนย้าย'];
 export const IT_KINDS = ['HW', 'SW', 'PW'];
@@ -158,9 +160,9 @@ export const itRequestTitle = (data: Pick<ItRequestData, 'items' | 'symptom'>): 
 export const itRequestAnswers = (data: ItRequestData): { label: string; value: string }[] => {
   const { work, acceptance } = data;
   return [
-    { label: 'User', value: data.userLogin },
+    { label: 'E-mail', value: data.userLogin },
     { label: 'เบอร์โทร', value: data.phone },
-    { label: 'ผู้ครอบครองทรัพย์สิน', value: data.assetHolder },
+    { label: 'ผู้ครอบครองทรัพย์สิน', value: data.assetHolder ?? '' },
     { label: 'สถานที่', value: data.location },
     ...data.items.map(item => ({
       label: item.type,
