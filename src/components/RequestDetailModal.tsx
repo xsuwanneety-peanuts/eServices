@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ItStepPanel } from './ItStepPanel';
+import { RequestDetails } from './RequestDetails';
 import {
   X,
   CheckCircle2,
@@ -203,48 +204,7 @@ export const RequestDetailModal: React.FC = () => {
             </div>
           )}
 
-          {/* Details & Attachments */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1">
-              <span className="text-slate-400 font-medium">รายละเอียดคำร้อง:</span>
-              <p className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-800 leading-relaxed whitespace-pre-line">
-                {activeRequest.details}
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {activeRequest.amount && (
-                <div>
-                  <span className="text-slate-400 font-medium">วงเงินงบประมาณ:</span>
-                  <p className="text-base font-extrabold text-blue-700">
-                    ฿{activeRequest.amount.toLocaleString()} บาท
-                  </p>
-                </div>
-              )}
-
-              {activeRequest.attachments && activeRequest.attachments.length > 0 && (
-                <div>
-                  <span className="text-slate-400 font-medium block mb-1">
-                    เอกสารแนบ ({activeRequest.attachments.length}):
-                  </span>
-                  <div className="space-y-1.5">
-                    {activeRequest.attachments.map((att, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700"
-                      >
-                        <div className="flex items-center space-x-2 truncate">
-                          <FileText className="w-4 h-4 text-blue-600 shrink-0" />
-                          <span className="font-medium truncate">{att.name}</span>
-                        </div>
-                        <span className="text-[11px] text-slate-400 shrink-0">{att.size}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <RequestDetails request={activeRequest} />
 
           {/* Approval history */}
           <div>
