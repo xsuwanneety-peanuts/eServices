@@ -53,7 +53,7 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
-import { isOfferedForm, nextRequestCode } from '../utils/forms';
+import { AddedStep, isOfferedForm, nextRequestCode } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { markOnce, seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
@@ -179,6 +179,9 @@ interface AppContextType {
   currentUser: UserPersona;
   /** False when the signed-in email is not in the Employee Directory yet. */
   isLinkedAccount: boolean;
+  /** The signed-in account is in the directory but has been switched off. */
+  isDisabledAccount: boolean;
+  deleteEmployee: (id: string) => void;
 
   // Employee Directory (also the source of approvers and email recipients)
   employees: UserPersona[];
@@ -242,7 +245,12 @@ interface AppContextType {
    * `pickedApprovers` maps a step id to the employee the requester chose, for steps whose
    * approver is picked on the form ('requester_picks').
    */
-  createNewRequest: (newReq: Partial<DocumentRequest>, pickedApprovers?: Record<string, string>) => DocumentRequest;
+  createNewRequest: (
+    newReq: Partial<DocumentRequest>,
+    pickedApprovers?: Record<string, string>,
+    /** Steps the requester added on a form that allows it, run after the form's own steps. */
+    addedSteps?: AddedStep[]
+  ) => DocumentRequest;
   /** `record` is what the person acting filled in, for steps that record something (IT work, acceptance). */
   approveRequest: (
     requestId: string,
@@ -328,7 +336,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [employees, setEmployees, employeesLoaded] = useFirestoreCollection<UserPersona>('employees', handleWriteError);
 
   // Each account is one employee: the directory entry with the same email as the sign-in
-  const linkedEmployee = employees.find(e => e.email.toLowerCase() === signedInEmail);
+  const directoryEntry = employees.find(e => e.email.toLowerCase() === signedInEmail);
+  // A switched-off employee is kept in the directory but treated as not being in it (admins
+  // are never locked out this way)
+  const isDisabledAccount = !!directoryEntry?.disabled && !isAdminLogin;
+  const linkedEmployee = isDisabledAccount ? undefined : directoryEntry;
   const isLinkedAccount = !!linkedEmployee;
   // An admin account that is not in the directory yet still needs to get in to add people,
   // so it gets a temporary admin profile; other unlinked accounts are stopped in App
@@ -463,6 +475,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setEmployees(prev => [...prev, newEmployee]);
   };
 
+  // Takes the person out of the directory. Documents keep the names written on them.
+  const deleteEmployee = (id: string) => {
+    setEmployees(prev =>
+      prev.filter(e => e.id !== id).map(e => (e.reportsToId === id ? { ...e, reportsToId: undefined } : e))
+    );
+  };
+
   const updateEmployee = (id: string, patch: Partial<Omit<UserPersona, 'id'>>) => {
     setEmployees(prev =>
       prev.map(e => {
@@ -595,7 +614,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       input.audience === 'custom' && existing
         ? existing.allowedDepartments
         : (Object.fromEntries(
-            CORPORATE_DEPARTMENTS.map(d => [d.id, input.audience === 'all' || d.id === deptId])
+            // 'own' is the department of whoever is saving the form
+            CORPORATE_DEPARTMENTS.map(d => [d.id, input.audience === 'all' || d.id === currentUser.departmentId])
           ) as Record<DepartmentId, boolean>);
 
     const form: MenuItemPermission = {
@@ -608,7 +628,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: input.description,
       fields: input.fields,
       workflowId,
-      ...(input.docPrefix ? { docPrefix: input.docPrefix } : {}),
+      // Once a form has a prefix it keeps it
+      ...(existing?.docPrefix || input.docPrefix ? { docPrefix: existing?.docPrefix || input.docPrefix } : {}),
+      ...(input.requesterAddsSteps ? { requesterAddsSteps: true } : {}),
       createdBy,
     };
 
@@ -753,7 +775,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Create new request
   const createNewRequest = (
     newReq: Partial<DocumentRequest>,
-    pickedApprovers: Record<string, string> = {}
+    pickedApprovers: Record<string, string> = {},
+    addedSteps: AddedStep[] = []
   ): DocumentRequest => {
     const matchedWf = workflows.find(w => w.id === (newReq.workflowId || 'wf-procure')) || workflows[0];
     const now = new Date();
@@ -774,8 +797,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const itRequest = newReq.itRequest;
 
+    // Steps the requester added run after the form's own, each by the employee they chose
+    const stepConfigs: ApprovalStepConfig[] = [
+      ...matchedWf.steps,
+      ...addedSteps.map((added, i) => ({
+        id: `${matchedWf.id}-added-${i + 1}`,
+        stepIndex: matchedWf.steps.length + i,
+        title: added.title,
+        roleName: added.title,
+        approverType: 'employee' as const,
+        approverEmployeeId: added.employeeId,
+        sendEmailNotification: true,
+        slaHours: 24,
+      })),
+    ];
+
     // Generate initial audit entries from workflow steps
-    const auditSteps: ApprovalAuditEntry[] = matchedWf.steps.map((s, idx) => {
+    const auditSteps: ApprovalAuditEntry[] = stepConfigs.map((s, idx) => {
       if (idx === 0) {
         return {
           stepIndex: 0,
@@ -838,7 +876,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRequests(prev => [doc, ...prev]);
 
     // Notify the next approver
-    const nextStepConfig = matchedWf.steps[1];
+    const nextStepConfig = stepConfigs[1];
     const nextApprover = auditSteps[1];
     if (nextStepConfig && nextStepConfig.sendEmailNotification && nextApprover?.approverEmail) {
       const emailNotif: ActionEmailNotification = {
@@ -935,6 +973,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             amount: req.amount,
           };
           setEmailNotifications(n => [newNotif, ...n]);
+        }
+
+        // Fully approved: tell the requester (unless they approved the last step themselves)
+        if (isFinalStep && req.requestorEmail && req.requestorEmail !== currentUser.email) {
+          const doneNotif: ActionEmailNotification = {
+            id: `email-done-${req.id}-${Date.now()}`,
+            kind: 'completed',
+            requestId: req.id,
+            requestCode: req.code,
+            requestTitle: req.title,
+            recipientEmail: req.requestorEmail,
+            recipientName: req.requestorName,
+            senderName: `ระบบ e-Service (อนุมัติขั้นสุดท้ายโดย ${currentUser.name})`,
+            stepTitle: 'อนุมัติเรียบร้อย',
+            createdAt: dateStr,
+            read: false,
+            amount: req.amount,
+          };
+          setEmailNotifications(n => [doneNotif, ...n]);
         }
 
         // What the person acting recorded (IT work, acceptance) is kept with the form's data
@@ -1189,6 +1246,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         departments: CORPORATE_DEPARTMENTS,
         currentUser,
         isLinkedAccount,
+        isDisabledAccount,
+        deleteEmployee,
         employees,
         addEmployee,
         updateEmployee,

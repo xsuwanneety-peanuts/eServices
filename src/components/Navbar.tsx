@@ -102,7 +102,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   const headerRef = useRef<HTMLElement>(null);
 
   // Bell badge: approvals waiting on me + unseen progress on my own requests
-  const pendingApprovalNotifs = myNotifications.filter(n => !n.actionTaken);
+  // "Fully approved" emails to a requester are not approvals; the bell shows them as progress instead
+  const pendingApprovalNotifs = myNotifications.filter(n => n.kind !== 'completed' && !n.actionTaken);
   const bellCount = pendingApprovalNotifs.filter(n => !n.read).length + unseenStatusUpdateCount;
   const hasAnyNotification = pendingApprovalNotifs.length > 0 || myStatusUpdates.length > 0;
 
@@ -410,7 +411,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                   )}
                 </div>
 
-                {pendingApprovalNotifs.length > 0 && (
+                {myNotifications.length > 0 && (
                   <div className="px-4 pt-2 border-t border-slate-100 text-center">
                     <button
                       onClick={() => {
@@ -419,7 +420,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
                       }}
                       className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
                     >
-                      ดูทั้งหมด
+                      ดูอีเมลทั้งหมด
                     </button>
                   </div>
                 )}

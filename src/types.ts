@@ -44,6 +44,8 @@ export interface UserPersona {
   avatar: string;
   /** Employee this person reports to (their line manager). Unset for the top of a reporting line. */
   reportsToId?: string;
+  /** Switched off by an admin: stays in the directory and on documents, but cannot use the system. */
+  disabled?: boolean;
 }
 
 /**
@@ -292,6 +294,8 @@ export interface MenuItemPermission {
   workflowId?: string;
   /** Start of the request number for this form, e.g. 'Ticket' gives Ticket-2026-0001 (default REQ). */
   docPrefix?: string;
+  /** The requester adds the people who handle the request, as many as needed, when filling it in. */
+  requesterAddsSteps?: boolean;
   /** A built-in form with its own screen and print layout (not made in the form builder). */
   template?: 'memo' | 'it_request';
   /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */
@@ -311,6 +315,8 @@ export interface ActionEmailNotification {
   createdAt: string;
   read: boolean;
   actionTaken?: 'approved' | 'rejected' | null;
+  /** 'completed' tells the requester their request is fully approved; nothing to decide. */
+  kind?: 'approval' | 'completed';
   priority?: PriorityLevel;
   amount?: number;
 }

@@ -20,7 +20,7 @@ import { PrintSlipModal } from './components/PrintSlipModal';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, toast, dataReady, employees, isLinkedAccount } = useApp();
+  const { activeTab, toast, dataReady, employees, isLinkedAccount, isDisabledAccount } = useApp();
   const { user, isAdminLogin, signOutUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -35,6 +35,29 @@ const AppContent: React.FC = () => {
           <p className="text-sm font-bold text-slate-800">ระบบยังไม่มีข้อมูลพนักงาน</p>
           <p className="text-xs text-slate-500">
             ผู้ดูแลระบบต้องเข้าสู่ระบบเพื่อเพิ่มพนักงานใน Employee Directory ก่อน
+          </p>
+          <button
+            type="button"
+            onClick={signOutUser}
+            className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // In the directory, but switched off by an admin
+  if (isDisabledAccount) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-sm text-center space-y-3">
+          <p className="text-2xl font-black text-red-700">e-Service</p>
+          <p className="text-sm font-bold text-slate-800">บัญชีนี้ถูกปิดการใช้งาน</p>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            บัญชี <span className="font-mono text-slate-700">{user.email}</span> เข้าใช้งานระบบไม่ได้
+            กรุณาติดต่อฝ่าย Information Technology หากต้องการเปิดใช้งานอีกครั้ง
           </p>
           <button
             type="button"

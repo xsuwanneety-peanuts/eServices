@@ -35,6 +35,14 @@ export interface CustomFormInput {
   audience: FormAudience;
   /** Start of the request number; empty means the default. */
   docPrefix: string;
+  /** The requester adds handlers (any number) after the steps above, when filling in the form. */
+  requesterAddsSteps: boolean;
+}
+
+/** A step the requester added while filling in a form: one named employee handles it. */
+export interface AddedStep {
+  title: string;
+  employeeId: string;
 }
 
 /** Request numbers read <prefix>-<year>-<running>, e.g. REQ-2026-0007 or Ticket-2026-0001. */
