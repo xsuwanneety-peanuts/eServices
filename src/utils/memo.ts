@@ -40,6 +40,20 @@ export const withCurrentMemoWording = {
       : workflow,
 };
 
+/** One-time update of memos sent with the earlier wording, and of their approval alerts. */
+export const MEMO_OLD_REQUESTS_MARKER = 'migrate-memo-old-requests';
+export const memoRequestWithCurrentWording = (request: DocumentRequest): DocumentRequest =>
+  request.memo
+    ? {
+        ...request,
+        steps: request.steps.map(step => ({
+          ...step,
+          stepTitle: memoStepTitle(step.stepTitle),
+          approverRole: memoStepTitle(step.approverRole),
+        })),
+      }
+    : request;
+
 export const MEMO_FORM: MenuItemPermission = {
   id: MEMO_FORM_ID,
   menuCode: 'GA-MEMO',

@@ -21,8 +21,11 @@ import {
 } from '../types';
 import {
   MEMO_FORM,
+  MEMO_OLD_REQUESTS_MARKER,
   MEMO_SEED_MARKER,
   MEMO_TITLES_MARKER,
+  memoRequestWithCurrentWording,
+  memoStepTitle,
   MEMO_WORKFLOW,
   MEMO_WORKFLOW_ID,
   withCurrentMemoWording,
@@ -428,6 +431,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch(handleWriteError);
   }, [isAdminLogin, workflowsLoaded, permissionsLoaded, hasMemoFlow]);
+
+  // Memos already sent, and the alerts raised for them, get the same rewording once
+  const oldMemosRewordStarted = useRef(false);
+  useEffect(() => {
+    if (!isAdminLogin || !requestsLoaded || !notificationsLoaded || oldMemosRewordStarted.current) return;
+    oldMemosRewordStarted.current = true;
+    markOnce(MEMO_OLD_REQUESTS_MARKER)
+      .then(first => {
+        if (!first) return;
+        const memoIds = new Set(requests.filter(r => r.memo).map(r => r.id));
+        setRequests(prev => prev.map(memoRequestWithCurrentWording));
+        setEmailNotifications(prev =>
+          prev.map(n => (memoIds.has(n.requestId) ? { ...n, stepTitle: memoStepTitle(n.stepTitle) } : n))
+        );
+      })
+      .catch(handleWriteError);
+  }, [isAdminLogin, requestsLoaded, notificationsLoaded]);
 
   // ---- Employee Directory ----
   const departmentLabel = (deptId: DepartmentId) => {
