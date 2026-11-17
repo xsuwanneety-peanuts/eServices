@@ -47,6 +47,7 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
+import { isOfferedForm } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
@@ -184,8 +185,14 @@ interface AppContextType {
   // Navigation
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  activeDeptFilter: DepartmentId | null;
-  setActiveDeptFilter: (dept: DepartmentId | null) => void;
+  /** Forms on offer in the แบบฟอร์ม menu that the signed-in user may fill in. */
+  offeredForms: MenuItemPermission[];
+  /** Form being filled in (null when none is open). */
+  fillingFormId: string | null;
+  setFillingFormId: (id: string | null) => void;
+  /** Form builder: null = closed; `form: null` = a new form for that department. */
+  formBuilder: { deptId: DepartmentId; form: MenuItemPermission | null } | null;
+  setFormBuilder: (state: { deptId: DepartmentId; form: MenuItemPermission | null } | null) => void;
   /** Knowledge Base article being read (null shows the article list). */
   activeArticleId: string | null;
   setActiveArticleId: (id: string | null) => void;
@@ -342,8 +349,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [],
     isArray
   );
-  const [activeDeptFilter, setActiveDeptFilter] = useState<DepartmentId | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
+  const [fillingFormId, setFillingFormId] = useState<string | null>(null);
+  const [formBuilder, setFormBuilder] = useState<{ deptId: DepartmentId; form: MenuItemPermission | null } | null>(
+    null
+  );
   const [kbArticles, setKbArticles] = useFirestoreCollection<KnowledgeArticle>('kbArticles', handleWriteError);
 
   const [menuPermissions, setMenuPermissions, permissionsLoaded] = useFirestoreCollection<MenuItemPermission>(
@@ -463,6 +473,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!perm) return true;
     return perm.allowedDepartments[currentUser.departmentId] ?? false;
   };
+
+  const offeredForms = menuPermissions.filter(f => isOfferedForm(f) && isMenuPermittedForUser(f.menuCode));
 
   // Toggle permission in the matrix
   const togglePermission = (menuId: string, deptId: DepartmentId) => {
@@ -1187,8 +1199,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dataReady,
         activeTab,
         setActiveTab,
-        activeDeptFilter,
-        setActiveDeptFilter,
+        offeredForms,
+        fillingFormId,
+        setFillingFormId,
+        formBuilder,
+        setFormBuilder,
         activeArticleId,
         setActiveArticleId,
         knowledgeArticles,

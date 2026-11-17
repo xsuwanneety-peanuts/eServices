@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DepartmentId } from '../types';
 import { DEPT_ICONS } from '../utils/departmentIcons';
+import { isOfferedForm } from '../utils/forms';
 import { Check, FolderPlus, RotateCcw, Save, Search, ShieldCheck } from 'lucide-react';
 
 export const AccessControlView: React.FC = () => {
@@ -18,7 +19,8 @@ export const AccessControlView: React.FC = () => {
   const [ownerDept, setOwnerDept] = useState<DepartmentId>('it');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const formsOf = (deptId: DepartmentId) => menuPermissions.filter(f => f.ownerDepartmentId === deptId);
+  const formsOf = (deptId: DepartmentId) =>
+    menuPermissions.filter(f => f.ownerDepartmentId === deptId && isOfferedForm(f));
   const owner = departments.find(d => d.id === ownerDept);
   const OwnerIcon = DEPT_ICONS[ownerDept];
 
