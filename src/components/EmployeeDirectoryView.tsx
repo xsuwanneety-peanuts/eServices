@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { DepartmentId, UserPersona } from '../types';
 import { ROLE_LABELS, wouldCreateCycle } from '../utils/approvers';
 import { ADMIN_EMAILS } from '../lib/firebase';
+import { isOfferedForm } from '../utils/forms';
 import { Contact, Pencil, Plus, Search, SearchX, Users, X, AlertTriangle } from 'lucide-react';
 
 type Role = UserPersona['role'];
@@ -310,7 +311,7 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
   employee,
   onClose,
 }) => {
-  const { employees, departments, addEmployee, updateEmployee, showToast } = useApp();
+  const { employees, departments, menuPermissions, addEmployee, updateEmployee, showToast } = useApp();
   const isNew = employee === null;
 
   const [name, setName] = useState(employee?.name ?? '');
@@ -321,6 +322,7 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
   const [role, setRole] = useState<Role>(employee?.role === 'admin' ? 'director' : employee?.role ?? 'employee');
   const [reportsToId, setReportsToId] = useState(employee?.reportsToId ?? '');
   const [error, setError] = useState('');
+  const allowedForms = menuPermissions.filter(f => isOfferedForm(f) && f.allowedDepartments[departmentId]);
 
   const managerOptions = employees.filter(
     e => e.id !== employee?.id && (!employee || !wouldCreateCycle(employee.id, e.id, employees))
@@ -437,6 +439,15 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
               </select>
             </div>
           </div>
+          {/* The department decides which forms the employee can use (set on the access page) */}
+          <p className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
+            <span className="font-semibold text-slate-700">แบบฟอร์มที่ใช้ได้ตามสิทธิ์ของหน่วยงานนี้: </span>
+            {role === 'director'
+              ? 'ทุกแบบฟอร์ม (ผู้บริหาร)'
+              : allowedForms.length > 0
+                ? allowedForms.map(f => f.menuName).join(', ')
+                : 'ยังไม่มี — ตั้งได้ที่หน้าสิทธิ์เข้าถึง'}
+          </p>
           <div>
             <label htmlFor="emp-role" className="block font-semibold text-slate-700 mb-1">
               บทบาทในระบบ
