@@ -2,7 +2,14 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { DepartmentId, FormFieldType, MenuItemPermission, StepApproverType } from '../types';
 import { APPROVER_TYPE_LABELS } from '../utils/approvers';
-import { CustomFormInput, FIELD_TYPE_LABELS, FormAudience, newId } from '../utils/forms';
+import {
+  CustomFormInput,
+  DEFAULT_DOC_PREFIX,
+  FIELD_TYPE_LABELS,
+  FormAudience,
+  isValidDocPrefix,
+  newId,
+} from '../utils/forms';
 import { AlertTriangle, ArrowDown, ArrowUp, Plus, Trash2, X } from 'lucide-react';
 
 type FieldDraft = CustomFormInput['fields'][number] & { optionsText: string };
@@ -19,7 +26,7 @@ const move = <T,>(list: T[], index: number, delta: number): T[] => {
   return next;
 };
 
-/** Create or edit a form that a department offers on its own page. */
+/** Create or edit a shared form (one with no owning department) for the แบบฟอร์ม menu. */
 export const FormBuilderModal: React.FC<{
   deptId: DepartmentId;
   form: MenuItemPermission | null;
@@ -41,6 +48,7 @@ export const FormBuilderModal: React.FC<{
 
   const [name, setName] = useState(form?.menuName ?? '');
   const [description, setDescription] = useState(form?.description ?? '');
+  const [docPrefix, setDocPrefix] = useState(form?.docPrefix ?? '');
   const [audience, setAudience] = useState<FormAudience>(initialAudience);
   const [fields, setFields] = useState<FieldDraft[]>(
     form?.fields?.map(f => ({ ...f, optionsText: (f.options ?? []).join(', ') })) ?? [
@@ -63,6 +71,10 @@ export const FormBuilderModal: React.FC<{
 
   const handleSave = () => {
     if (!name.trim()) return setError('กรุณาตั้งชื่อแบบฟอร์ม');
+    const prefix = docPrefix.trim();
+    if (prefix && !isValidDocPrefix(prefix)) {
+      return setError('คำนำหน้าเลขที่เอกสารใช้ได้เฉพาะตัวอักษรอังกฤษและตัวเลข 2–12 ตัว และต้องขึ้นต้นด้วยตัวอักษร');
+    }
     if (fields.length === 0) return setError('แบบฟอร์มต้องมีช่องข้อมูลอย่างน้อย 1 ช่อง');
     if (fields.some(f => !f.label.trim())) return setError('กรุณาตั้งชื่อช่องข้อมูลให้ครบทุกช่อง');
     const options = (f: FieldDraft) =>
@@ -85,6 +97,7 @@ export const FormBuilderModal: React.FC<{
         name: name.trim(),
         description: description.trim(),
         audience,
+        docPrefix: prefix,
         fields: fields.map(({ optionsText, ...f }) => ({
           ...f,
           label: f.label.trim(),
@@ -124,9 +137,9 @@ export const FormBuilderModal: React.FC<{
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h2 id="form-builder-title" className="text-base font-bold text-slate-900">
-              {isNew ? 'สร้างแบบฟอร์มใหม่' : `แก้ไขแบบฟอร์ม ${form.menuCode}`}
+              {isNew ? 'สร้างแบบฟอร์มใหม่' : 'แก้ไขแบบฟอร์ม'}
             </h2>
-            <p className="text-xs text-slate-500 truncate">{dept?.nameEn}</p>
+            <p className="text-xs text-slate-500 truncate">แบบฟอร์มกลาง ไม่ผูกกับหน่วยงานใด</p>
           </div>
           <button
             type="button"
@@ -165,6 +178,28 @@ export const FormBuilderModal: React.FC<{
                 placeholder="แบบฟอร์มนี้ใช้ทำอะไร ต้องเตรียมอะไร"
                 className={inputClass}
               />
+            </div>
+            <div>
+              <label htmlFor="fb-prefix" className="block font-semibold text-slate-700 mb-1">
+                คำนำหน้าเลขที่เอกสาร (ไม่บังคับ)
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  id="fb-prefix"
+                  value={docPrefix}
+                  onChange={e => setDocPrefix(e.target.value)}
+                  placeholder={DEFAULT_DOC_PREFIX}
+                  maxLength={12}
+                  className={`${inputClass} max-w-40 font-mono`}
+                />
+                <span className="text-slate-500">
+                  เลขที่จะออกเป็น{' '}
+                  <span className="font-mono text-slate-800">
+                    {docPrefix.trim() || DEFAULT_DOC_PREFIX}-{new Date().getFullYear()}-0001
+                  </span>{' '}
+                  นับลำดับแยกตามคำนำหน้าและปี
+                </span>
+              </div>
             </div>
           </section>
 
@@ -365,7 +400,7 @@ export const FormBuilderModal: React.FC<{
               {(
                 [
                   ['all', 'ทุกหน่วยงาน'],
-                  ['own', `เฉพาะ ${dept?.nameEn ?? 'หน่วยงานนี้'}`],
+                  ['own', `เฉพาะ ${dept?.nameEn ?? 'หน่วยงานเดียว'}`],
                   ...(initialAudience === 'custom' ? [['custom', 'ตามที่ตั้งไว้ในหน้าสิทธิ์เข้าถึง']] : []),
                 ] as [FormAudience, string][]
               ).map(([value, label]) => (

@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
+import { nextRequestCode } from '../utils/forms';
 import { AlertTriangle, ArrowRight, Send, X } from 'lucide-react';
 
 /** Fill in and submit a department-built form. */
 export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: () => void }> = ({ form, onClose }) => {
-  const { workflows, employees, currentUser, departments, createNewRequest } = useApp();
+  const { workflows, employees, currentUser, requests, createNewRequest } = useApp();
   const workflow = workflows.find(w => w.id === form.workflowId);
-  const dept = departments.find(d => d.id === form.ownerDepartmentId);
   const fields = form.fields ?? [];
 
   const [title, setTitle] = useState('');
@@ -25,7 +25,7 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
     if (!title.trim()) return setError('กรุณากรอกหัวเรื่อง');
     const missing = fields.find(f => f.required && !(values[f.id] ?? '').trim());
     if (missing) return setError(`กรุณากรอก "${missing.label}"`);
-    if (!workflow) return setError('แบบฟอร์มนี้ยังไม่มีขั้นตอนอนุมัติ กรุณาติดต่อหน่วยงานเจ้าของแบบฟอร์ม');
+    if (!workflow) return setError('แบบฟอร์มนี้ยังไม่มีขั้นตอนอนุมัติ กรุณาติดต่อผู้ดูแลระบบ');
 
     const answers = fields
       .map(f => ({ label: f.label, value: (values[f.id] ?? '').trim() }))
@@ -33,7 +33,8 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
     createNewRequest({
       title: title.trim(),
       category: form.menuName,
-      departmentId: form.ownerDepartmentId,
+      // A shared form has no owning department: the request belongs to the requester's own
+      departmentId: currentUser.departmentId,
       workflowId: workflow.id,
       itilCategory: 'service_request',
       formId: form.id,
@@ -59,11 +60,18 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
       >
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-[10px] font-mono text-slate-400">{form.menuCode}</span>
             <h2 id="custom-request-title" className="text-base font-bold text-slate-900">
               {form.menuName}
             </h2>
-            <p className="text-xs text-slate-500">{dept?.nameEn}</p>
+            <p className="text-xs text-slate-500">
+              เลขที่เอกสารถัดไป{' '}
+              <span className="font-mono text-slate-700">
+                {nextRequestCode(
+                  form.docPrefix ?? '',
+                  requests.map(r => r.code)
+                )}
+              </span>
+            </p>
           </div>
           <button
             type="button"

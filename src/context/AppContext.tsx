@@ -53,7 +53,7 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
-import { isOfferedForm } from '../utils/forms';
+import { isOfferedForm, nextRequestCode } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { markOnce, seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { useAuth } from '../components/AuthGate';
@@ -602,12 +602,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: formId,
       menuCode,
       menuName: input.name,
-      category: CORPORATE_DEPARTMENTS.find(d => d.id === deptId)?.nameEn ?? deptId,
+      category: 'แบบฟอร์มกลาง',
       ownerDepartmentId: deptId,
       allowedDepartments,
       description: input.description,
       fields: input.fields,
       workflowId,
+      ...(input.docPrefix ? { docPrefix: input.docPrefix } : {}),
       createdBy,
     };
 
@@ -646,7 +647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWorkflows(prev =>
       prev.some(w => w.id === workflowId) ? prev.map(w => (w.id === workflowId ? workflow : w)) : [...prev, workflow]
     );
-    showToast(existing ? `บันทึกแบบฟอร์ม "${input.name}" แล้ว` : `สร้างแบบฟอร์ม ${menuCode} "${input.name}" แล้ว`, 'success');
+    showToast(existing ? `บันทึกแบบฟอร์ม "${input.name}" แล้ว` : `สร้างแบบฟอร์ม "${input.name}" แล้ว`, 'success');
   };
 
   const deleteCustomForm = (formId: string) => {
@@ -757,14 +758,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const matchedWf = workflows.find(w => w.id === (newReq.workflowId || 'wf-procure')) || workflows[0];
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    // Next number in this year's sequence, e.g. REQ-2026-0007
-    const yearPrefix = `REQ-${now.getFullYear()}-`;
-    const lastNumber = requests.reduce((max, r) => {
-      if (!r.code.startsWith(yearPrefix)) return max;
-      const n = Number(r.code.slice(yearPrefix.length));
-      return Number.isFinite(n) && n > max ? n : max;
-    }, 0);
-    const requestCode = `${yearPrefix}${String(lastNumber + 1).padStart(4, '0')}`;
+    // Next number in this year's sequence, e.g. REQ-2026-0007; a form may count under its own prefix
+    const docPrefix = menuPermissions.find(f => f.id === newReq.formId)?.docPrefix ?? '';
+    const requestCode = nextRequestCode(
+      docPrefix,
+      requests.map(r => r.code),
+      now
+    );
     // A memo gets its date and running number here, at the moment it is sent
     const memo: MemoData | undefined = newReq.memo && {
       ...newReq.memo,
