@@ -54,15 +54,23 @@ const TITLE_LABELS = ['หัวเรื่อง', 'เรื่อง', 'titl
 /** True for a form field that only asks for the request's title again. */
 export const isTitleField = (label: string) => TITLE_LABELS.includes(label.trim().toLowerCase());
 
+/** Digits of the running number unless a form says otherwise, e.g. 0007. */
+export const DEFAULT_RUNNING_DIGITS = 4;
+
 /** The next free number for a prefix in the given year, counted over the requests that already use it. */
-export const nextRequestCode = (prefix: string, codes: string[], now = new Date()): string => {
+export const nextRequestCode = (
+  prefix: string,
+  codes: string[],
+  now = new Date(),
+  digits = DEFAULT_RUNNING_DIGITS
+): string => {
   const start = `${prefix || DEFAULT_DOC_PREFIX}-${now.getFullYear()}-`;
   const last = codes.reduce((max, code) => {
     if (!code.toLowerCase().startsWith(start.toLowerCase())) return max;
     const n = Number(code.slice(start.length));
     return Number.isInteger(n) && n > max ? n : max;
   }, 0);
-  return `${start}${String(last + 1).padStart(4, '0')}`;
+  return `${start}${String(last + 1).padStart(digits, '0')}`;
 };
 
 /**
