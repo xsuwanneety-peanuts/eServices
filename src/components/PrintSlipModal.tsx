@@ -201,8 +201,8 @@ export const PrintSlipModal: React.FC = () => {
         : SlipDocument;
   const fileName = isMemo
     ? `Memo-${activeRequest.memo!.docNo.replace('/', '-')}.pdf`
-    : isPoRequest
-      ? `JRF-${activeRequest.code}.pdf`
+    : isPoRequest && !activeRequest.code.startsWith('JRF-')
+      ? `JRF-${activeRequest.code}.pdf` // JRFs numbered before the JRF- prefix (PO-yyyy-nnnn)
       : `${activeRequest.code}.pdf`;
 
   const handleDownload = async () => {

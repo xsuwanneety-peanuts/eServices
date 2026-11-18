@@ -3,7 +3,13 @@ import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { nextRequestCode } from '../utils/forms';
 import { thaiDate } from '../utils/memo';
-import { PO_CLOSING_LINE, PO_DEFAULT_CLIENT, PO_DEFAULT_TO, poApproverTitle } from '../utils/poRequest';
+import {
+  PO_CLOSING_LINE,
+  PO_DEFAULT_CLIENT,
+  PO_DEFAULT_TO,
+  poApproverTitle,
+  runningDigitsFor,
+} from '../utils/poRequest';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
 import poLogo from '../assets/po-logo.png';
 import { AlertTriangle, Send, X } from 'lucide-react';
@@ -24,7 +30,9 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
 
   const nextRef = nextRequestCode(
     form.docPrefix ?? '',
-    requests.map(r => r.code)
+    requests.map(r => r.code),
+    new Date(),
+    runningDigitsFor(form)
   );
 
   const handleSubmit = (event: React.FormEvent) => {

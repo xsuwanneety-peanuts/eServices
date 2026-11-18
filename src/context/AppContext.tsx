@@ -35,7 +35,17 @@ import {
   nextMemoNo,
   thaiDate,
 } from '../utils/memo';
-import { PO_FORM, PO_SEED_MARKER, PO_WORKFLOW, poAnswers, poDetails } from '../utils/poRequest';
+import {
+  PO_DOC_PREFIX,
+  PO_FORM,
+  PO_FORM_ID,
+  PO_OLD_DOC_PREFIX,
+  PO_SEED_MARKER,
+  PO_WORKFLOW,
+  poAnswers,
+  poDetails,
+  runningDigitsFor,
+} from '../utils/poRequest';
 import {
   IT_REQUEST_FORM,
   IT_REQUEST_SEED_MARKER,
@@ -432,6 +442,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ).catch(handleWriteError);
   }, [isAdminLogin, employeesLoaded]);
 
+  // The JRF was first saved numbering PO-yyyy-nnnn; it now numbers JRF-yyyy-nnnnn.
+  // The prefix is locked in the form builder, so an admin's sign-in moves it once.
+  const poFormHasOldPrefix = menuPermissions.some(f => f.id === PO_FORM_ID && f.docPrefix === PO_OLD_DOC_PREFIX);
+  useEffect(() => {
+    if (!isAdminLogin || !permissionsLoaded || !poFormHasOldPrefix) return;
+    setMenuPermissions(prev =>
+      prev.map(f => (f.id === PO_FORM_ID && f.docPrefix === PO_OLD_DOC_PREFIX ? { ...f, docPrefix: PO_DOC_PREFIX } : f))
+    );
+  }, [isAdminLogin, permissionsLoaded, poFormHasOldPrefix]);
+
   // A memo form saved with the first wording ("CFO อนุมัติ", "CEO อนุมัติ") is reworded once
   const hasMemoFlow = workflows.some(w => w.id === MEMO_WORKFLOW_ID);
   const memoRewordStarted = useRef(false);
@@ -787,11 +807,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     // Next number in this year's sequence, e.g. REQ-2026-0007; a form may count under its own prefix
-    const docPrefix = menuPermissions.find(f => f.id === newReq.formId)?.docPrefix ?? '';
+    const requestForm = menuPermissions.find(f => f.id === newReq.formId);
     const requestCode = nextRequestCode(
-      docPrefix,
+      requestForm?.docPrefix ?? '',
       requests.map(r => r.code),
-      now
+      now,
+      runningDigitsFor(requestForm)
     );
     // A memo gets its date and running number here, at the moment it is sent
     const memo: MemoData | undefined = newReq.memo && {
