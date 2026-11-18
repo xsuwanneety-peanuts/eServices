@@ -6,6 +6,7 @@ import {
   thaiDateTime,
   workDuration,
 } from './itRequest';
+import { poDate } from './poRequest';
 
 /** One labelled value of a request. Long or multi-line text takes the full width. */
 export interface DetailField {
@@ -134,6 +135,26 @@ export const requestDetailSections = (request: DocumentRequest): DetailSection[]
             },
           ]
         : []),
+    ]);
+  }
+
+  if (request.poRequest) {
+    const po = request.poRequest;
+    return clean([
+      {
+        fields: [
+          field("Client's Reference Number", po.refNo, false),
+          field('Date Of Request', po.requestDate, false),
+          field('Requested Form (Client Name)', po.clientName),
+          field("Requested By (Person's Name)", request.requestorName),
+          field('Expected Date Of Completion', poDate(po.expectedDate), false),
+          field('Attention To', po.attentionTo, false),
+        ],
+      },
+      {
+        title: 'Description Of Request',
+        fields: [field('เรียน', po.to, false), field('', po.description, true)],
+      },
     ]);
   }
 

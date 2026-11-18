@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { DocumentRequest } from '../types';
 import { MemoDocument } from './MemoDocument';
 import { ItRequestDocument } from './ItRequestDocument';
+import { PoRequestDocument } from './PoRequestDocument';
 import {
   X,
   FileDown,
@@ -197,10 +198,19 @@ export const PrintSlipModal: React.FC = () => {
   // A memo is printed in its own layout and named after its memo number
   const isMemo = !!activeRequest.memo;
   const isItRequest = !!activeRequest.itRequest;
-  const Paper = isMemo ? MemoDocument : isItRequest ? ItRequestDocument : SlipDocument;
+  const isPoRequest = !!activeRequest.poRequest;
+  const Paper = isMemo
+    ? MemoDocument
+    : isItRequest
+      ? ItRequestDocument
+      : isPoRequest
+        ? PoRequestDocument
+        : SlipDocument;
   const fileName = isMemo
     ? `Memo-${activeRequest.memo!.docNo.replace('/', '-')}.pdf`
-    : `${activeRequest.code}.pdf`;
+    : isPoRequest
+      ? `JRF-${activeRequest.code}.pdf`
+      : `${activeRequest.code}.pdf`;
 
   const handleDownload = async () => {
     if (!exportRef.current || isSaving) return;
@@ -228,7 +238,9 @@ export const PrintSlipModal: React.FC = () => {
                 ? 'บันทึกภายใน (Memorandum)'
                 : isItRequest
                   ? 'IT & Request Form'
-                  : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
+                  : isPoRequest
+                    ? 'P&O Business Requirement (JRF)'
+                    : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
             </h3>
           </div>
           <div className="flex items-center space-x-2">

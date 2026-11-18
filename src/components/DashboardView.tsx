@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { DocumentRequest } from '../types';
 import {
   ChevronRight,
   ShieldCheck,
@@ -17,7 +18,6 @@ export const DashboardView: React.FC = () => {
     currentUser,
     isSystemAdmin,
     canApprove,
-    myRequests,
     approvalQueue,
     isLinkedAccount,
     setActiveTab,
@@ -26,20 +26,28 @@ export const DashboardView: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Requesters see only what they submitted; directors/admins see the whole system
-  const scopedRequests = isSystemAdmin ? requests : myRequests;
-  const pendingCount = scopedRequests.filter(r => r.status === 'in_review' || r.status === 'pending').length;
-  const approvedCount = scopedRequests.filter(r => r.status === 'approved').length;
+  // Requests this person approved at some step (not counting submitting their own)
+  const myEmail = currentUser.email.toLowerCase();
+  const iApproved = (req: DocumentRequest) =>
+    !!myEmail &&
+    req.steps.some((s, idx) => idx > 0 && s.status === 'approved' && s.approverEmail.toLowerCase() === myEmail);
+  const isOpen = (req: DocumentRequest) => req.status === 'in_review' || req.status === 'pending';
+  // "อนุมัติแล้ว": fully approved, or approved by me at my step even while it moves on
+  const isApprovedForMe = (req: DocumentRequest) => req.status === 'approved' || iApproved(req);
+
+  // Requesters see what they submitted and what they approved; directors/admins see everything
+  const scopedRequests = isSystemAdmin
+    ? requests
+    : requests.filter(r => r.requestorId === currentUser.id || iApproved(r));
+  const pendingCount = scopedRequests.filter(r => isOpen(r) && !iApproved(r)).length;
+  const approvedCount = scopedRequests.filter(isApprovedForMe).length;
   const listTitle = isSystemAdmin ? 'คำร้องทั้งหมด' : 'คำร้องของฉัน';
 
   // Filter requests
   const filteredRequests = useMemo(() => {
     return scopedRequests.filter(req => {
-      const isPending = req.status === 'in_review' || req.status === 'pending';
-      const isApproved = req.status === 'approved';
-
-      if (filterStatus === 'pending' && !isPending) return false;
-      if (filterStatus === 'approved' && !isApproved) return false;
+      if (filterStatus === 'pending' && (!isOpen(req) || iApproved(req))) return false;
+      if (filterStatus === 'approved' && !isApprovedForMe(req)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -215,6 +223,11 @@ export const DashboardView: React.FC = () => {
                       <span className="text-xs font-mono font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200 whitespace-nowrap">
                         {req.code}
                       </span>
+                      {iApproved(req) && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                          ✓ ฉันอนุมัติแล้ว
+                        </span>
+                      )}
 
                     </div>
 
@@ -223,7 +236,7 @@ export const DashboardView: React.FC = () => {
                     </h3>
 
                     <p className="text-xs text-slate-400">
-                      {isSystemAdmin && <>{req.requestorName} · </>}
+                      {(isSystemAdmin || req.requestorId !== currentUser.id) && <>{req.requestorName} · </>}
                       {req.createdAt.split(' ')[0]}
                       {isPending && currentStep && (
                         <span className="text-amber-700"> · {currentStep.stepTitle}</span>

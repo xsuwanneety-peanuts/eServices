@@ -4,6 +4,7 @@ import { DepartmentId, MenuItemPermission } from '../types';
 import { ROLE_LABELS } from '../utils/approvers';
 import { DEPT_ICONS } from '../utils/departmentIcons';
 import { isOfferedForm } from '../utils/forms';
+import { askConfirm } from './ConfirmDialog';
 import { AlertTriangle, Check, FileText, FolderPlus, RotateCcw, ShieldCheck, Undo2, Users } from 'lucide-react';
 
 type Access = Record<DepartmentId, boolean>;
@@ -49,14 +50,34 @@ export const AccessControlView: React.FC = () => {
     });
   };
 
-  const setAllDepartments = (f: MenuItemPermission, allowed: boolean) => {
-    if (!allowed && !window.confirm(`ปิด "${f.menuName}" ทุกหน่วยงาน?\n\nจะไม่มีใครยื่นแบบฟอร์มนี้ได้ ยกเว้นผู้บริหาร`)) return;
+  const setAllDepartments = async (f: MenuItemPermission, allowed: boolean) => {
+    if (
+      !allowed &&
+      !(await askConfirm({
+        title: `ปิด "${f.menuName}" ทุกหน่วยงาน?`,
+        message: 'จะไม่มีใครยื่นแบบฟอร์มนี้ได้ ยกเว้นผู้บริหาร',
+        confirmLabel: 'ปิดทุกหน่วยงาน',
+        danger: true,
+      }))
+    ) {
+      return;
+    }
     apply(`${allowed ? 'เปิด' : 'ปิด'} ${f.menuName} ทุกหน่วยงาน`, { [f.id]: everyDept(allowed) });
   };
 
-  const setAllForms = (deptId: DepartmentId, allowed: boolean) => {
+  const setAllForms = async (deptId: DepartmentId, allowed: boolean) => {
     const deptName = departments.find(d => d.id === deptId)?.nameEn ?? deptId;
-    if (!allowed && !window.confirm(`ปิดทุกแบบฟอร์มสำหรับ ${deptName}?\n\nพนักงานหน่วยงานนี้จะยื่นแบบฟอร์มไม่ได้เลย ยกเว้นผู้บริหาร`)) return;
+    if (
+      !allowed &&
+      !(await askConfirm({
+        title: `ปิดทุกแบบฟอร์มสำหรับ ${deptName}?`,
+        message: 'พนักงานหน่วยงานนี้จะยื่นแบบฟอร์มไม่ได้เลย ยกเว้นผู้บริหาร',
+        confirmLabel: 'ปิดทุกแบบฟอร์ม',
+        danger: true,
+      }))
+    ) {
+      return;
+    }
     apply(
       `${allowed ? 'เปิด' : 'ปิด'}ทุกแบบฟอร์มให้ ${deptName}`,
       Object.fromEntries(forms.map(f => [f.id, { ...f.allowedDepartments, [deptId]: allowed }]))
@@ -65,8 +86,13 @@ export const AccessControlView: React.FC = () => {
 
   // The standard setting: every form open to every department
   const isStandard = forms.every(f => allowedCount(f) === departments.length);
-  const resetToStandard = () => {
-    if (!window.confirm(`รีเซ็ตสิทธิ์เป็นค่ามาตรฐาน?\n\nทุกแบบฟอร์ม (${forms.length}) จะเปิดให้ทุกหน่วยงาน`)) return;
+  const resetToStandard = async () => {
+    const ok = await askConfirm({
+      title: 'รีเซ็ตสิทธิ์เป็นค่ามาตรฐาน?',
+      message: `ทุกแบบฟอร์ม (${forms.length}) จะเปิดให้ทุกหน่วยงาน`,
+      confirmLabel: 'รีเซ็ต',
+    });
+    if (!ok) return;
     apply('รีเซ็ตเป็นค่ามาตรฐาน', Object.fromEntries(forms.map(f => [f.id, everyDept(true)])));
     showToast('เปิดทุกแบบฟอร์มให้ทุกหน่วยงานแล้ว', 'info');
   };

@@ -5,6 +5,7 @@ import { MAX_FILES_PER_ARTICLE, MAX_FILE_BYTES, formatFileSize } from '../utils/
 import { Paperclip, Trash2, X } from 'lucide-react';
 import type { JSONContent } from '@tiptap/react';
 import { RichTextEditor } from './RichText';
+import { askConfirm } from './ConfirmDialog';
 
 /** Write or edit a Knowledge Base article, with attached files. */
 export const ArticleEditorModal: React.FC<{
@@ -67,7 +68,13 @@ export const ArticleEditorModal: React.FC<{
 
   const handleDelete = async () => {
     if (!article) return;
-    if (window.confirm(`ลบบทความ "${article.title}" และไฟล์แนบทั้งหมด?`)) {
+    if (
+      await askConfirm({
+        title: `ลบบทความ "${article.title}" และไฟล์แนบทั้งหมด?`,
+        confirmLabel: 'ลบบทความ',
+        danger: true,
+      })
+    ) {
       onClose();
       await deleteArticle(article.id);
     }

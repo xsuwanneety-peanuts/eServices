@@ -1,6 +1,7 @@
 import React from 'react';
 import { EditorContent, JSONContent, useEditor, useEditorState, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { askText } from './ConfirmDialog';
 import {
   Bold,
   Heading2,
@@ -72,9 +73,14 @@ const Toolbar: React.FC<{ editor: Editor }> = ({ editor }) => {
     }),
   });
 
-  const setLink = () => {
+  const setLink = async () => {
     const previous = editor.getAttributes('link').href as string | undefined;
-    const url = window.prompt('ใส่ลิงก์ (เว้นว่างเพื่อเอาลิงก์ออก)', previous ?? 'https://');
+    const url = await askText({
+      title: 'ใส่ลิงก์',
+      label: 'ลิงก์ (เว้นว่างเพื่อเอาลิงก์ออก)',
+      initial: previous ?? 'https://',
+      confirmLabel: 'ตกลง',
+    });
     if (url === null) return;
     if (url.trim() === '' || url.trim() === 'https://') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();

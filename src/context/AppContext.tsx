@@ -18,6 +18,7 @@ import {
   KbAttachment,
   MemoData,
   ItRequestData,
+  PoRequestData,
 } from '../types';
 import {
   MEMO_FORM,
@@ -34,6 +35,7 @@ import {
   nextMemoNo,
   thaiDate,
 } from '../utils/memo';
+import { PO_FORM, PO_SEED_MARKER, PO_WORKFLOW, poAnswers, poDetails } from '../utils/poRequest';
 import {
   IT_REQUEST_FORM,
   IT_REQUEST_SEED_MARKER,
@@ -413,6 +415,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Built-in forms added after a project was first set up get their own one-time marker
       .then(() =>
         seedCollectionsOnce({ menuPermissions: [MEMO_FORM], workflows: [MEMO_WORKFLOW] }, MEMO_SEED_MARKER, 1000)
+      )
+      .then(() =>
+        seedCollectionsOnce({ menuPermissions: [PO_FORM], workflows: [PO_WORKFLOW] }, PO_SEED_MARKER, 1200)
       )
       .catch(handleWriteError);
   }, [isAdminLogin]);
@@ -796,6 +801,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const itRequest = newReq.itRequest;
+    // A P&O JRF takes the request's number as its reference, and today's date
+    const poRequest: PoRequestData | undefined = newReq.poRequest && {
+      ...newReq.poRequest,
+      refNo: requestCode,
+      requestDate: thaiDate(now),
+    };
 
     // Steps the requester added run after the form's own, each by the employee they chose
     const stepConfigs: ApprovalStepConfig[] = [
@@ -862,12 +873,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       impact: newReq.impact,
       priority: newReq.priority,
       assignedTo: newReq.assignedTo,
-      details: memo ? memoDetails(memo) : itRequest ? itRequestDetails(itRequest) : newReq.details || '',
+      details: memo
+        ? memoDetails(memo)
+        : itRequest
+          ? itRequestDetails(itRequest)
+          : poRequest
+            ? poDetails(poRequest)
+            : newReq.details || '',
       attachments: newReq.attachments || [],
       formId: newReq.formId,
-      answers: memo ? memoAnswers(memo) : itRequest ? itRequestAnswers(itRequest) : newReq.answers,
+      answers: memo
+        ? memoAnswers(memo)
+        : itRequest
+          ? itRequestAnswers(itRequest)
+          : poRequest
+            ? poAnswers(poRequest)
+            : newReq.answers,
       memo,
       itRequest,
+      poRequest,
       workflowId: matchedWf.id,
       currentStepIndex: 1, // Next approver
       steps: auditSteps,
@@ -1075,20 +1099,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const memo = r.memo && input.memo ? { ...r.memo, ...input.memo } : r.memo;
         // On an IT & Request Form the details box edits the symptom; the rest stays as filled in
         const itRequest = r.itRequest && { ...r.itRequest, symptom: input.details };
+        // On a P&O JRF it edits the description of the request
+        const poRequest = r.poRequest && { ...r.poRequest, description: input.details };
         return {
           ...r,
           title: itRequest ? itRequestTitle(itRequest) : input.title,
           memo,
           itRequest,
-          details: memo ? memoDetails(memo) : itRequest ? itRequestDetails(itRequest) : input.details,
+          poRequest,
+          details: memo
+            ? memoDetails(memo)
+            : itRequest
+              ? itRequestDetails(itRequest)
+              : poRequest
+                ? poDetails(poRequest)
+                : input.details,
           // Answers of a built form are shown from `details`; drop the old copy once it is edited
           answers: memo
             ? memoAnswers(memo)
             : itRequest
               ? itRequestAnswers(itRequest)
-              : detailsChanged
-                ? undefined
-                : r.answers,
+              : poRequest
+                ? poAnswers(poRequest)
+                : detailsChanged
+                  ? undefined
+                  : r.answers,
           status: 'in_review' as const,
           currentStepIndex: returnedAt,
           updatedAt: dateStr,

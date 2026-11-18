@@ -19,9 +19,9 @@ export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () 
   const [picked, setPicked] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
 
-  // Anyone but the author can be asked to sign
+  // Anyone but the author can be asked to sign, except people who are switched off
   const candidates = employees
-    .filter(e => e.id !== currentUser.id)
+    .filter(e => e.id !== currentUser.id && !e.disabled)
     .sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
   const handleSubmit = (event: React.FormEvent) => {
