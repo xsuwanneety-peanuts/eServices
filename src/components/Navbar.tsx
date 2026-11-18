@@ -4,6 +4,7 @@ import { useAuth } from './AuthGate';
 import { ENV_BADGE, FIREBASE_PROJECT_ID, IS_PRODUCTION } from '../lib/firebase';
 import { MenuItemPermission } from '../types';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
+import companyLogo from '../assets/company-logo.png';
 
 import {
   Bell,
@@ -203,10 +204,11 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
 
           <button
             onClick={() => goTo('my_workspace')}
-            className="flex items-center text-left focus:outline-hidden cursor-pointer"
+            className="flex items-center gap-2 text-left focus:outline-hidden cursor-pointer"
           >
-            <span className="text-xl sm:text-2xl font-black tracking-tight text-red-700 hover:text-red-800 transition-colors whitespace-nowrap">
-              e-Service
+            <img src={companyLogo} alt="" className="w-8 h-8 sm:w-9 sm:h-9 object-contain shrink-0" />
+            <span className="text-lg sm:text-2xl font-black tracking-tight text-red-700 hover:text-red-800 transition-colors whitespace-nowrap">
+              JMI E-Service
             </span>
           </button>
           {!IS_PRODUCTION && (

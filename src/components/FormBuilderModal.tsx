@@ -7,6 +7,7 @@ import {
   DEFAULT_DOC_PREFIX,
   FIELD_TYPE_LABELS,
   FormAudience,
+  isTitleField,
   isValidDocPrefix,
   newId,
 } from '../utils/forms';
@@ -84,6 +85,10 @@ export const FormBuilderModal: React.FC<{
     }
     if (fields.length === 0) return setError('แบบฟอร์มต้องมีช่องข้อมูลอย่างน้อย 1 ช่อง');
     if (fields.some(f => !f.label.trim())) return setError('กรุณาตั้งชื่อช่องข้อมูลให้ครบทุกช่อง');
+    const titleField = fields.find(f => isTitleField(f.label));
+    if (titleField) {
+      return setError(`ไม่ต้องเพิ่มช่อง "${titleField.label.trim()}" เพราะทุกคำร้องมีช่องหัวเรื่องให้อยู่แล้ว กรุณาลบช่องนี้ออก`);
+    }
     const options = (f: FieldDraft) =>
       f.optionsText
         .split(',')

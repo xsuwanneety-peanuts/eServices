@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
-import { nextRequestCode } from '../utils/forms';
+import { isTitleField, nextRequestCode } from '../utils/forms';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
 import { AlertTriangle, Send, X } from 'lucide-react';
 
@@ -12,7 +12,8 @@ const handlerLabel = (n: number) => `ผู้ดำเนินการ ${n}`;
 export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: () => void }> = ({ form, onClose }) => {
   const { workflows, employees, currentUser, requests, createNewRequest } = useApp();
   const workflow = workflows.find(w => w.id === form.workflowId);
-  const fields = form.fields ?? [];
+  // Every request already has its own title box, so a form field that only asks for the title again is left out
+  const fields = (form.fields ?? []).filter(f => !isTitleField(f.label));
   const addsSteps = !!form.requesterAddsSteps;
 
   const [title, setTitle] = useState('');

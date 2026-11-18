@@ -24,7 +24,7 @@ export type AccountResult =
   | { ok: true; created: boolean; linkSent: boolean }
   | { ok: false; message: string };
 
-const errorMessage = (error: unknown): string => {
+const errorMessage = (error: unknown, fallback = 'สร้างบัญชีเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่'): string => {
   const code = (error as { code?: string })?.code ?? '';
   if (code === 'auth/invalid-email') return 'รูปแบบอีเมลไม่ถูกต้อง';
   if (code === 'auth/weak-password') return `รหัสผ่านต้องยาวอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`;
@@ -33,16 +33,32 @@ const errorMessage = (error: unknown): string => {
   }
   if (code === 'auth/network-request-failed') return 'เชื่อมต่ออินเทอร์เน็ตไม่ได้ กรุณาลองใหม่';
   if (code === 'auth/too-many-requests') return 'ทำรายการบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่';
-  return 'สร้างบัญชีเข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่';
+  return fallback;
 };
+
+/**
+ * Firebase's own page sets the new password (the project's action URL can't be changed in the
+ * console yet); afterwards it shows a "Continue" button back to this app.
+ */
+const appLinkSettings = () => ({
+  url: `${window.location.origin}${import.meta.env.BASE_URL}`,
+  handleCodeInApp: false,
+});
 
 /** Sends the "set your password" email to an existing account. */
 export const sendPasswordLink = async (email: string): Promise<AccountResult> => {
   try {
-    await sendPasswordResetEmail(auth, email);
+    try {
+      await sendPasswordResetEmail(auth, email, appLinkSettings());
+    } catch (error) {
+      // The app's address isn't in the project's authorized domains yet: send Firebase's plain link
+      const code = (error as { code?: string })?.code ?? '';
+      if (code !== 'auth/unauthorized-continue-uri' && code !== 'auth/invalid-continue-uri') throw error;
+      await sendPasswordResetEmail(auth, email);
+    }
     return { ok: true, created: false, linkSent: true };
   } catch (error) {
-    return { ok: false, message: errorMessage(error) };
+    return { ok: false, message: errorMessage(error, 'ส่งลิงก์ตั้งรหัสผ่านไม่สำเร็จ กรุณาลองใหม่') };
   }
 };
 

@@ -268,7 +268,7 @@ export interface KnowledgeArticle {
   updatedAt: string;
   readMinutes: number;
   sections: KnowledgeSection[];
-  /** Optional shortcut to an e-Service form related to the article. */
+  /** Optional shortcut to a JMI E-Service form related to the article. */
   relatedForm?: { label: string; category: ItRequestCategory };
   /** Plain text of an article written by an employee, for search and reading time. */
   body?: string;
