@@ -40,6 +40,7 @@ export const NewRequestModal: React.FC = () => {
     currentUser,
     setActiveRequestId,
     employees,
+    showToast,
   } = useApp();
 
   // IT team members who can be assigned as the person responsible
@@ -446,7 +447,7 @@ export const NewRequestModal: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert('กรุณากรอกหัวเรื่องคำขอ');
+      showToast('กรุณากรอกหัวเรื่องคำขอ', 'warning');
       return;
     }
 

@@ -11,6 +11,7 @@ import {
   newId,
 } from '../utils/forms';
 import { AlertTriangle, ArrowDown, ArrowUp, Plus, Trash2, X } from 'lucide-react';
+import { askConfirm } from './ConfirmDialog';
 
 type FieldDraft = CustomFormInput['fields'][number] & { optionsText: string };
 type StepDraft = CustomFormInput['steps'][number];
@@ -123,9 +124,16 @@ export const FormBuilderModal: React.FC<{
     onClose();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!form) return;
-    if (window.confirm(`ลบแบบฟอร์ม "${form.menuName}"?\n\nคำร้องที่ยื่นไปแล้วยังอยู่ แต่จะยื่นแบบฟอร์มนี้ใหม่ไม่ได้อีก`)) {
+    if (
+      await askConfirm({
+        title: `ลบแบบฟอร์ม "${form.menuName}"?`,
+        message: 'คำร้องที่ยื่นไปแล้วยังอยู่ แต่จะยื่นแบบฟอร์มนี้ใหม่ไม่ได้อีก',
+        confirmLabel: 'ลบแบบฟอร์ม',
+        danger: true,
+      })
+    ) {
       deleteCustomForm(form.id);
       onClose();
     }
@@ -389,11 +397,15 @@ export const FormBuilderModal: React.FC<{
                         className={inputClass}
                       >
                         <option value="">— เลือกพนักงาน —</option>
-                        {employees.map(person => (
-                          <option key={person.id} value={person.id}>
-                            {person.name} — {person.position}
-                          </option>
-                        ))}
+                        {/* Switched-off people are not offered; one already chosen stays listed, marked */}
+                        {employees
+                          .filter(person => !person.disabled || person.id === step.approverEmployeeId)
+                          .map(person => (
+                            <option key={person.id} value={person.id}>
+                              {person.name} — {person.position}
+                              {person.disabled ? ' (ปิดการใช้งาน)' : ''}
+                            </option>
+                          ))}
                       </select>
                     )}
                   </div>

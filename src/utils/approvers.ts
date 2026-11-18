@@ -23,9 +23,16 @@ export const ROLE_LABELS: Record<UserPersona['role'], string> = {
 const findEmployee = (employees: UserPersona[], id?: string) =>
   id ? employees.find(e => e.id === id) : undefined;
 
+/** People who can still be given work: everyone not switched off. */
+export const activeEmployees = (employees: UserPersona[]) => employees.filter(e => !e.disabled);
+
+/** Nobody is asked to approve while switched off: they could not sign in to do it. */
+const ifActive = (person?: UserPersona) => (person && !person.disabled ? person : undefined);
+
 /**
  * The employee who approves a step for a request submitted by `requestorId`,
- * looked up in the Employee Directory. Undefined when the reporting line is not set up.
+ * looked up in the Employee Directory. Undefined when the reporting line is not set up,
+ * or when that person is switched off (an admin then approves in their place).
  */
 export const resolveStepApprover = (
   step: Pick<ApprovalStepConfig, 'approverType' | 'approverEmployeeId'>,
@@ -37,11 +44,12 @@ export const resolveStepApprover = (
     case 'requester':
       return requestor;
     case 'reports_to':
-      return findEmployee(employees, requestor?.reportsToId);
+      return ifActive(findEmployee(employees, requestor?.reportsToId));
     case 'reports_to_2':
-      return findEmployee(employees, findEmployee(employees, requestor?.reportsToId)?.reportsToId);
+      // The line still runs through a switched-off manager to the one above them
+      return ifActive(findEmployee(employees, findEmployee(employees, requestor?.reportsToId)?.reportsToId));
     case 'employee':
-      return findEmployee(employees, step.approverEmployeeId);
+      return ifActive(findEmployee(employees, step.approverEmployeeId));
     case 'requester_picks':
       // Chosen on the form at submission, so there is nobody to look up beforehand
       return undefined;

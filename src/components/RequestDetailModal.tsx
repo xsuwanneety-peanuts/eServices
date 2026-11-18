@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ItStepPanel } from './ItStepPanel';
 import { RequestDetails } from './RequestDetails';
@@ -31,6 +31,7 @@ export const RequestDetailModal: React.FC = () => {
     setIsPrintModalOpen,
     canActOnRequest,
     resubmitRequest,
+    showToast,
   } = useApp();
 
   // Fixing a returned request
@@ -41,9 +42,15 @@ export const RequestDetailModal: React.FC = () => {
   // A memo is fixed field by field instead of through one details box
   const [editMemo, setEditMemo] = useState({ to: '', background: '', summary: '' });
 
-  const [approveComment, setApproveComment] = useState('เห็นชอบอนุมัติ');
-  const [rejectReason, setRejectReason] = useState('');
+  // One comment box for the approver, used whether they approve or send the request back
+  const [decisionComment, setDecisionComment] = useState('');
+  // On an IT & Request Form task step the work form shows first; this switches to sending it back
   const [isRejecting, setIsRejecting] = useState(false);
+  // A comment typed for one request is not carried over to the next one opened
+  useEffect(() => {
+    setDecisionComment('');
+    setIsRejecting(false);
+  }, [activeRequest?.id]);
 
   if (!activeRequest) return null;
 
@@ -60,7 +67,14 @@ export const RequestDetailModal: React.FC = () => {
   const startEditing = () => {
     setEditTitle(activeRequest.title);
     // On an IT & Request Form the box edits the symptom, the part the requester wrote freely
-    setEditDetails(activeRequest.itRequest ? activeRequest.itRequest.symptom : activeRequest.details);
+    // and on a P&O JRF the description of the request
+    setEditDetails(
+      activeRequest.itRequest
+        ? activeRequest.itRequest.symptom
+        : activeRequest.poRequest
+          ? activeRequest.poRequest.description
+          : activeRequest.details
+    );
     if (activeRequest.memo) {
       const { to, background, summary } = activeRequest.memo;
       setEditMemo({ to, background, summary });
@@ -71,14 +85,14 @@ export const RequestDetailModal: React.FC = () => {
 
   const handleResubmit = () => {
     if (!editTitle.trim()) {
-      alert('กรุณากรอกหัวเรื่อง');
+      showToast('กรุณากรอกหัวเรื่อง', 'warning');
       return;
     }
     const memo = activeRequest.memo
       ? { to: editMemo.to.trim(), background: editMemo.background.trim(), summary: editMemo.summary.trim() }
       : undefined;
     if (memo && (!memo.to || !memo.background || !memo.summary)) {
-      alert('กรุณากรอก เรียน สรุปความเป็นมา และสรุปสาระสำคัญ ให้ครบ');
+      showToast('กรุณากรอก เรียน สรุปความเป็นมา และสรุปสาระสำคัญ ให้ครบ', 'warning');
       return;
     }
     resubmitRequest(activeRequest.id, {
@@ -91,17 +105,21 @@ export const RequestDetailModal: React.FC = () => {
   };
 
   const handleApprove = () => {
-    approveRequest(activeRequest.id, approveComment);
+    approveRequest(activeRequest.id, decisionComment.trim() || 'เห็นชอบอนุมัติ');
+    setDecisionComment('');
   };
 
   const handleReject = () => {
-    if (!rejectReason.trim()) {
-      alert('กรุณากรอกเหตุผลการตีกลับ');
+    if (!decisionComment.trim()) {
+      showToast('กรุณาเขียนความเห็นว่าต้องแก้ไขอะไร ก่อนตีกลับ', 'warning');
       return;
     }
-    rejectRequest(activeRequest.id, rejectReason);
+    rejectRequest(activeRequest.id, decisionComment.trim());
+    setDecisionComment('');
     setIsRejecting(false);
   };
+  // The IT work and acceptance steps approve through their own form above
+  const isItTaskStep = !!activeRequest.itRequest && !!currentStep?.task;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
@@ -332,47 +350,52 @@ export const RequestDetailModal: React.FC = () => {
                 </span>
               </div>
 
-              {isRejecting ? (
-                <div className="space-y-2">
-                  <textarea
-                    value={rejectReason}
-                    onChange={e => setRejectReason(e.target.value)}
-                    placeholder="ระบุข้อความตีกลับ เพื่อให้ผู้ยื่นแก้ไขเอกสาร..."
-                    rows={2}
-                    className="w-full text-xs p-2.5 rounded-lg border border-rose-300 focus:outline-hidden bg-white"
-                  />
-                  <div className="flex justify-end space-x-2">
-                    <button
-                      onClick={() => setIsRejecting(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-white border border-slate-300 text-slate-700 cursor-pointer"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      onClick={handleReject}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
-                    >
-                      ยืนยันการส่งคืน/ตีกลับ
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div>
+                <label htmlFor="decision-comment" className="block text-xs font-semibold text-slate-700 mb-1">
+                  ความเห็น{' '}
+                  <span className="font-normal text-slate-500">
+                    {isItTaskStep ? '(บอกผู้ยื่นว่าต้องแก้ไขอะไร)' : '(ไม่บังคับเมื่ออนุมัติ / ต้องกรอกเมื่อตีกลับ)'}
+                  </span>
+                </label>
+                <textarea
+                  id="decision-comment"
+                  value={decisionComment}
+                  onChange={e => setDecisionComment(e.target.value)}
+                  placeholder={
+                    isItTaskStep ? 'เช่น ข้อมูลไม่ครบ ขอเลขทะเบียนเครื่อง' : 'เช่น เห็นชอบ / ขอให้แนบใบเสนอราคาเพิ่ม'
+                  }
+                  rows={3}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:outline-hidden focus:border-red-500 bg-white"
+                />
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  ความเห็นจะบันทึกไว้ในประวัติการอนุมัติ และผู้ยื่นเห็นได้
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                {isItTaskStep ? (
+                  <button
+                    onClick={() => setIsRejecting(false)}
+                    className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-white text-slate-700 font-semibold text-xs border border-slate-300 hover:bg-slate-100 cursor-pointer"
+                  >
+                    กลับไปที่แบบฟอร์ม
+                  </button>
+                ) : (
                   <button
                     onClick={handleApprove}
                     className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>ประทับตราอนุมัติทันที (Digital Approve)</span>
+                    <span>ประทับตราอนุมัติ (Digital Approve)</span>
                   </button>
-                  <button
-                    onClick={() => setIsRejecting(true)}
-                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-semibold text-xs border border-slate-300 cursor-pointer"
-                  >
-                    ตีกลับแก้ไข
-                  </button>
-                </div>
-              )}
+                )}
+                <button
+                  onClick={handleReject}
+                  className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-white hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-semibold text-xs border border-slate-300 cursor-pointer"
+                >
+                  ตีกลับแก้ไข
+                </button>
+              </div>
             </div>
           )}
 
@@ -439,7 +462,11 @@ export const RequestDetailModal: React.FC = () => {
                 ) : (
                   <div>
                     <label htmlFor="rs-details" className="block font-semibold text-slate-700 mb-1">
-                      {activeRequest.itRequest ? 'สาเหตุ / อาการ' : 'รายละเอียด'}
+                      {activeRequest.itRequest
+                        ? 'สาเหตุ / อาการ'
+                        : activeRequest.poRequest
+                          ? 'Description Of Request'
+                          : 'รายละเอียด'}
                     </label>
                     <textarea
                       id="rs-details"

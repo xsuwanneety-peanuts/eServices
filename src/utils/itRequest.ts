@@ -63,7 +63,9 @@ export const IT_REQUEST_FORM: MenuItemPermission = {
  * Flow อนุมัติ (until then admins approve that step).
  */
 export const buildItRequestWorkflow = (employees: UserPersona[]): WorkflowDefinition => {
-  const director = employees.find(e => e.departmentId === 'it' && /director|ผู้อำนวยการ/i.test(e.position));
+  const director = employees.find(
+    e => !e.disabled && e.departmentId === 'it' && /director|ผู้อำนวยการ/i.test(e.position)
+  );
   const base = { sendEmailNotification: true, slaHours: 24 };
   return {
     id: IT_REQUEST_WORKFLOW_ID,

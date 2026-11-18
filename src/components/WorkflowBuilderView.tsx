@@ -323,12 +323,21 @@ export const WorkflowBuilderView: React.FC = () => {
                                 className={selectClass}
                               >
                                 {!chosen && <option value="">— เลือกพนักงาน —</option>}
-                                {employees.map(person => (
-                                  <option key={person.id} value={person.id}>
-                                    {person.name} — {person.position}
-                                  </option>
-                                ))}
+                                {/* Switched-off people are not offered; one already chosen stays listed, marked */}
+                                {employees
+                                  .filter(person => !person.disabled || person.id === step.approverEmployeeId)
+                                  .map(person => (
+                                    <option key={person.id} value={person.id}>
+                                      {person.name} — {person.position}
+                                      {person.disabled ? ' (ปิดการใช้งาน)' : ''}
+                                    </option>
+                                  ))}
                               </select>
+                              {chosen?.disabled && (
+                                <p className="mt-1 text-[11px] font-semibold text-amber-700">
+                                  คนนี้ถูกปิดการใช้งาน คำร้องใหม่จะไม่ส่งถึง ผู้ดูแลระบบต้องอนุมัติแทน เลือกคนใหม่
+                                </p>
+                              )}
                               {chosen && (
                                 <p className="mt-1 text-[11px] text-slate-400 font-mono break-all">{chosen.email}</p>
                               )}

@@ -155,6 +155,29 @@ export interface DocumentRequest {
   memo?: MemoData;
   /** Set when the request is an IT & Request Form (printed in the paper form's layout). */
   itRequest?: ItRequestData;
+  /** Set when the request is a P&O Business Requirement (printed in P&O's JRF layout). */
+  poRequest?: PoRequestData;
+}
+
+/**
+ * A Business Requirement (JRF) sent to P&O. The subject is the request title; the requester,
+ * request date and reference number come from the request itself.
+ */
+export interface PoRequestData {
+  /** Requested Form (Client Name) */
+  clientName: string;
+  /** Attention To: who at P&O it is for (optional). */
+  attentionTo: string;
+  /** Expected Date Of Completion as yyyy-mm-dd (optional). */
+  expectedDate: string;
+  /** Addressee line that opens the description, e.g. เจ้าหน้าที่. */
+  to: string;
+  /** Description Of Request */
+  description: string;
+  /** Client's Reference Number, given when the request is sent. */
+  refNo: string;
+  /** Date Of Request as dd/mm/yyyy in the Buddhist era, given when the request is sent. */
+  requestDate: string;
 }
 
 /**
@@ -297,7 +320,7 @@ export interface MenuItemPermission {
   /** The requester adds the people who handle the request, as many as needed, when filling it in. */
   requesterAddsSteps?: boolean;
   /** A built-in form with its own screen and print layout (not made in the form builder). */
-  template?: 'memo' | 'it_request';
+  template?: 'memo' | 'it_request' | 'po_request';
   /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */
   createdBy?: string;
   allowedDepartments: Record<DepartmentId, boolean>;

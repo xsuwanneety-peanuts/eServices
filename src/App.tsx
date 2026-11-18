@@ -17,6 +17,7 @@ import { NewRequestModal } from './components/NewRequestModal';
 import { EmailSimulatorModal } from './components/EmailSimulatorModal';
 import { RequestDetailModal } from './components/RequestDetailModal';
 import { PrintSlipModal } from './components/PrintSlipModal';
+import { ConfirmDialogHost } from './components/ConfirmDialog';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -119,6 +120,7 @@ const AppContent: React.FC = () => {
       <EmailSimulatorModal />
       <RequestDetailModal />
       <PrintSlipModal />
+      <ConfirmDialogHost />
 
       {/* Toast Notification */}
       {toast && (

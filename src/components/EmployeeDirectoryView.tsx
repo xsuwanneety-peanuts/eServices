@@ -4,7 +4,22 @@ import { DepartmentId, UserPersona } from '../types';
 import { ROLE_LABELS, wouldCreateCycle } from '../utils/approvers';
 import { ADMIN_EMAILS } from '../lib/firebase';
 import { isOfferedForm } from '../utils/forms';
-import { Contact, Pencil, Plus, Search, SearchX, Trash2, Users, X, AlertTriangle } from 'lucide-react';
+import { AccountSetup, MIN_PASSWORD_LENGTH, createLoginAccount } from '../utils/loginAccounts';
+import { askConfirm } from './ConfirmDialog';
+import {
+  Contact,
+  KeyRound,
+  Loader2,
+  Mail,
+  Pencil,
+  Plus,
+  Search,
+  SearchX,
+  Trash2,
+  Users,
+  X,
+  AlertTriangle,
+} from 'lucide-react';
 
 type Role = UserPersona['role'];
 const ROLES: Role[] = ['employee', 'approver', 'manager', 'director'];
@@ -19,7 +34,8 @@ const ROLE_BADGE: Record<Role, string> = {
 };
 
 export const EmployeeDirectoryView: React.FC = () => {
-  const { employees, updateEmployee, deleteEmployee, departments, currentUser, workflows, showToast } = useApp();
+  const { employees, updateEmployee, deleteEmployee, departments, currentUser, workflows, requests, showToast } =
+    useApp();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<DepartmentId | 'all'>('all');
@@ -56,42 +72,69 @@ export const EmployeeDirectoryView: React.FC = () => {
   const isProtected = (employee: UserPersona) => employee.id === currentUser.id || isAdminAccount(employee.email);
   const protectedReason = 'บัญชีผู้ดูแลระบบและบัญชีของตัวเอง ปิดการใช้งานหรือลบไม่ได้';
 
-  const toggleActive = (employee: UserPersona) => {
+  // Requests still in progress that are waiting on this person now, or will reach them later.
+  // Their steps were filled in at submission, so they keep pointing at this person.
+  const openRequestsFor = (employee: UserPersona) => {
+    const email = employee.email.toLowerCase();
+    const open = requests.filter(r => r.status === 'in_review' || r.status === 'pending' || r.status === 'returned');
+    const onStep = (r: (typeof open)[number], status: 'pending' | 'waiting' | 'rejected') =>
+      r.steps.some(s => s.status === status && s.approverEmail.toLowerCase() === email);
+    return {
+      now: open.filter(r => r.status !== 'returned' && onStep(r, 'pending')).length,
+      // A request this person sent back comes back to them once it is resubmitted
+      later: open.filter(r => onStep(r, 'waiting') || (r.status === 'returned' && onStep(r, 'rejected'))).length,
+    };
+  };
+
+  const openRequestLines = (employee: UserPersona) => {
+    const { now, later } = openRequestsFor(employee);
+    return [
+      now > 0 && `• คำร้อง ${now} รายการกำลังรอคนนี้อนุมัติอยู่`,
+      later > 0 && `• คำร้อง ${later} รายการจะถึงคิวคนนี้ในขั้นถัดไป`,
+      (now > 0 || later > 0) && '  คำร้องเหล่านี้จะค้าง ผู้ดูแลระบบต้องอนุมัติแทน',
+    ].filter(Boolean);
+  };
+
+  const toggleActive = async (employee: UserPersona) => {
     if (employee.disabled) {
       updateEmployee(employee.id, { disabled: undefined });
       showToast(`เปิดใช้งาน ${employee.name} แล้ว`, 'success');
       return;
     }
-    if (
-      !window.confirm(
-        `ปิดการใช้งาน "${employee.name}"?\n\nชื่อยังอยู่ใน Employee Directory และเอกสารทั้งหมดยังอยู่ แต่บัญชีนี้จะเข้าใช้งานระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง`
-      )
-    ) {
-      return;
-    }
+    const effects = openRequestLines(employee);
+    const ok = await askConfirm({
+      title: `ปิดการใช้งาน "${employee.name}"?`,
+      message: `ชื่อยังอยู่ใน Employee Directory และเอกสารทั้งหมดยังอยู่ แต่บัญชีนี้จะเข้าใช้งานระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง และคำร้องใหม่จะไม่ส่งถึงคนนี้${
+        effects.length ? `\n\n${effects.join('\n')}` : ''
+      }`,
+      confirmLabel: 'ปิดการใช้งาน',
+      danger: true,
+    });
+    if (!ok) return;
     updateEmployee(employee.id, { disabled: true });
     showToast(`ปิดการใช้งาน ${employee.name} แล้ว`, 'info');
   };
 
-  const removeEmployee = (employee: UserPersona) => {
+  const removeEmployee = async (employee: UserPersona) => {
     const reports = employees.filter(e => e.reportsToId === employee.id).length;
     const steps = workflows.reduce(
       (count, w) => count + w.steps.filter(step => step.approverEmployeeId === employee.id).length,
       0
     );
     const effects = [
+      ...openRequestLines(employee),
       reports > 0 && `• ลูกทีม ${reports} คนจะไม่มี Report to ต้องตั้งใหม่`,
       steps > 0 && `• ขั้นตอนอนุมัติ ${steps} ขั้นที่ระบุคนนี้จะไม่มีผู้อนุมัติ ต้องตั้งใหม่ที่หน้า Flow อนุมัติ`,
     ].filter(Boolean);
-    if (
-      !window.confirm(
-        `ลบ "${employee.name}" ออกจากระบบถาวร?\n\nรายชื่อจะหายจาก Employee Directory และบัญชีนี้จะเข้าใช้งานไม่ได้ เอกสารที่เคยยื่นหรืออนุมัติไว้ยังอยู่ครบ${
-          effects.length ? `\n\n${effects.join('\n')}` : ''
-        }\n\nการลบนี้ย้อนกลับไม่ได้`
-      )
-    ) {
-      return;
-    }
+    const ok = await askConfirm({
+      title: `ลบ "${employee.name}" ออกจากระบบถาวร?`,
+      message: `รายชื่อจะหายจาก Employee Directory และบัญชีนี้จะเข้าใช้งานไม่ได้ เอกสารที่เคยยื่นหรืออนุมัติไว้ยังอยู่ครบ${
+        effects.length ? `\n\n${effects.join('\n')}` : ''
+      }\n\nการลบนี้ย้อนกลับไม่ได้`,
+      confirmLabel: 'ลบถาวร',
+      danger: true,
+    });
+    if (!ok) return;
     deleteEmployee(employee.id);
     showToast(`ลบ ${employee.name} ออกจากระบบแล้ว`, 'info');
   };
@@ -416,7 +459,12 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
   // The retired 'admin' role is the same as 'director' (ผู้บริหาร)
   const [role, setRole] = useState<Role>(employee?.role === 'admin' ? 'director' : employee?.role ?? 'employee');
   const [reportsToId, setReportsToId] = useState(employee?.reportsToId ?? '');
+  // Sign-in account: made here, so the admin does not also add the person in Firebase
+  const [accountSetup, setAccountSetup] = useState<AccountSetup>('reset_link');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const emailChanged = !isNew && email.trim().toLowerCase() !== employee.email.toLowerCase();
   const allowedForms = menuPermissions.filter(f => isOfferedForm(f) && f.allowedDepartments[departmentId]);
 
   const managerOptions = employees.filter(
@@ -426,8 +474,25 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
       (!employee || !wouldCreateCycle(employee.id, e.id, employees))
   );
 
-  const handleSubmit = (event: React.FormEvent) => {
+  // Existing employee: make their account if it is missing, or send a new set-password link
+  const handleSendLink = async () => {
+    if (!employee || busy) return;
+    setBusy(true);
+    setError('');
+    const result = await createLoginAccount(employee.email.toLowerCase());
+    setBusy(false);
+    if (!result.ok) return setError(result.message);
+    showToast(
+      result.created
+        ? `สร้างบัญชีและส่งลิงก์ตั้งรหัสผ่านไปที่ ${employee.email} แล้ว`
+        : `ส่งลิงก์ตั้งรหัสผ่านไปที่ ${employee.email} แล้ว`,
+      'success'
+    );
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (busy) return;
     const trimmedEmail = email.trim().toLowerCase();
     if (!name.trim() || !trimmedEmail || !position.trim()) {
       setError('กรุณากรอกชื่อ อีเมล และตำแหน่งให้ครบ');
@@ -441,6 +506,33 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
       setError('อีเมลนี้มีพนักงานคนอื่นใช้อยู่แล้ว');
       return;
     }
+    if (isNew && accountSetup === 'set_password' && password.length < MIN_PASSWORD_LENGTH) {
+      setError(`รหัสผ่านเริ่มต้นต้องยาวอย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`);
+      return;
+    }
+
+    // The account comes first: if it cannot be made, nothing is added and the admin can retry
+    let accountNote = '';
+    if (isNew && accountSetup !== 'none') {
+      setBusy(true);
+      setError('');
+      const result = await createLoginAccount(
+        trimmedEmail,
+        accountSetup === 'set_password' ? password : undefined
+      );
+      setBusy(false);
+      if (!result.ok) {
+        setError(`${result.message} — ยังไม่ได้เพิ่มพนักงาน`);
+        return;
+      }
+      accountNote = result.created
+        ? result.linkSent
+          ? ' สร้างบัญชีและส่งลิงก์ตั้งรหัสผ่านทางอีเมลแล้ว'
+          : ' สร้างบัญชีด้วยรหัสผ่านเริ่มต้นแล้ว'
+        : result.linkSent
+          ? ' อีเมลนี้มีบัญชีอยู่แล้ว ส่งลิงก์ตั้งรหัสผ่านให้แล้ว'
+          : ' อีเมลนี้มีบัญชีอยู่แล้ว รหัสผ่านเดิมไม่เปลี่ยน';
+    }
 
     const data = {
       name: name.trim(),
@@ -452,7 +544,7 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
     };
     if (isNew) {
       addEmployee(data);
-      showToast(`เพิ่ม ${data.name} ใน Employee Directory แล้ว`, 'success');
+      showToast(`เพิ่ม ${data.name} ใน Employee Directory แล้ว${accountNote}`, 'success');
     } else {
       updateEmployee(employee.id, data);
       showToast(`บันทึกข้อมูล ${data.name} แล้ว`, 'success');
@@ -497,7 +589,7 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
           </div>
           <div>
             <label htmlFor="emp-email" className="block font-semibold text-slate-700 mb-1">
-              อีเมล (ต้องตรงกับบัญชีที่ใช้เข้าสู่ระบบ และใช้รับอีเมลขออนุมัติ)
+              อีเมล (ใช้เข้าสู่ระบบ และรับอีเมลขออนุมัติ)
             </label>
             <input
               id="emp-email"
@@ -584,6 +676,77 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
             </p>
           </div>
 
+          {/* Sign-in account, made in Firebase from here */}
+          <fieldset className="p-3 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2">
+            <legend className="px-1 font-semibold text-slate-700 flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-red-600" />
+              บัญชีเข้าสู่ระบบ
+            </legend>
+            {isNew ? (
+              <>
+                {(
+                  [
+                    ['reset_link', 'ส่งลิงก์ให้พนักงานตั้งรหัสผ่านเองทางอีเมล', 'อีเมลต้องรับเมลได้จริง'],
+                    ['set_password', 'ตั้งรหัสผ่านเริ่มต้นให้', 'แจ้งรหัสให้พนักงานเอง เหมาะกับบัญชีทดสอบ'],
+                    ['none', 'ไม่สร้างบัญชีตอนนี้', 'มีบัญชีอยู่แล้ว หรือจะสร้างภายหลัง'],
+                  ] as [AccountSetup, string, string][]
+                ).map(([value, label, hint]) => (
+                  <label key={value} className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="emp-account"
+                      value={value}
+                      checked={accountSetup === value}
+                      onChange={() => setAccountSetup(value)}
+                      className="mt-0.5 w-3.5 h-3.5 text-red-600 cursor-pointer"
+                    />
+                    <span>
+                      <span className="text-slate-800">{label}</span>
+                      <span className="block text-[11px] text-slate-400">{hint}</span>
+                    </span>
+                  </label>
+                ))}
+                {accountSetup === 'set_password' && (
+                  <div className="pl-5">
+                    <label htmlFor="emp-password" className="sr-only">
+                      รหัสผ่านเริ่มต้น
+                    </label>
+                    <input
+                      id="emp-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder={`รหัสผ่านเริ่มต้น อย่างน้อย ${MIN_PASSWORD_LENGTH} ตัวอักษร`}
+                      className={inputClass}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-slate-600">
+                  สร้างบัญชีให้ถ้ายังไม่มี หรือส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่{' '}
+                  <span className="font-mono text-slate-800">{employee.email}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSendLink}
+                  disabled={busy || emailChanged}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  ส่งลิงก์ตั้งรหัสผ่าน
+                </button>
+                {emailChanged && (
+                  <p className="text-[11px] text-amber-700">
+                    แก้อีเมลแล้ว: บันทึกก่อน แล้วเปิดแก้ไขอีกครั้งเพื่อสร้างบัญชีให้อีเมลใหม่
+                  </p>
+                )}
+              </>
+            )}
+          </fieldset>
+
           {error && (
             <p role="alert" className="flex items-center gap-1.5 text-rose-700 font-semibold">
               <AlertTriangle className="w-4 h-4" />
@@ -602,8 +765,10 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white shadow-xs cursor-pointer disabled:cursor-wait"
           >
+            {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             {isNew ? 'เพิ่มพนักงาน' : 'บันทึก'}
           </button>
         </div>

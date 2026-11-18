@@ -27,6 +27,7 @@ export const EmailSimulatorModal: React.FC = () => {
     executeEmailAction,
     requests,
     setActiveRequestId,
+    showToast,
   } = useApp();
 
   const [rejectReason, setRejectReason] = useState('');
@@ -67,7 +68,7 @@ export const EmailSimulatorModal: React.FC = () => {
   const handleReject = () => {
     if (!currentEmail) return;
     if (!rejectReason.trim()) {
-      alert('กรุณาระบุเหตุผลการตีกลับ');
+      showToast('กรุณาระบุเหตุผลการตีกลับ', 'warning');
       return;
     }
     executeEmailAction(currentEmail.id, 'rejected', rejectReason);
