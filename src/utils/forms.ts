@@ -49,6 +49,11 @@ export interface AddedStep {
 export const DEFAULT_DOC_PREFIX = 'REQ';
 export const isValidDocPrefix = (prefix: string) => /^[A-Za-z][A-Za-z0-9]{1,11}$/.test(prefix);
 
+/** Labels that mean the request's title, which every request already asks for itself. */
+const TITLE_LABELS = ['หัวเรื่อง', 'เรื่อง', 'title', 'subject'];
+/** True for a form field that only asks for the request's title again. */
+export const isTitleField = (label: string) => TITLE_LABELS.includes(label.trim().toLowerCase());
+
 /** The next free number for a prefix in the given year, counted over the requests that already use it. */
 export const nextRequestCode = (prefix: string, codes: string[], now = new Date()): string => {
   const start = `${prefix || DEFAULT_DOC_PREFIX}-${now.getFullYear()}-`;

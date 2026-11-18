@@ -32,7 +32,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
         <div className="max-w-sm text-center space-y-3">
-          <p className="text-2xl font-black text-red-700">e-Service</p>
+          <p className="text-2xl font-black text-red-700">JMI E-Service</p>
           <p className="text-sm font-bold text-slate-800">ระบบยังไม่มีข้อมูลพนักงาน</p>
           <p className="text-xs text-slate-500">
             ผู้ดูแลระบบต้องเข้าสู่ระบบเพื่อเพิ่มพนักงานใน Employee Directory ก่อน
@@ -54,7 +54,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
         <div className="max-w-sm text-center space-y-3">
-          <p className="text-2xl font-black text-red-700">e-Service</p>
+          <p className="text-2xl font-black text-red-700">JMI E-Service</p>
           <p className="text-sm font-bold text-slate-800">บัญชีนี้ถูกปิดการใช้งาน</p>
           <p className="text-xs text-slate-500 leading-relaxed">
             บัญชี <span className="font-mono text-slate-700">{user.email}</span> เข้าใช้งานระบบไม่ได้
@@ -77,7 +77,7 @@ const AppContent: React.FC = () => {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-slate-50 px-4">
         <div className="max-w-sm text-center space-y-3">
-          <p className="text-2xl font-black text-red-700">e-Service</p>
+          <p className="text-2xl font-black text-red-700">JMI E-Service</p>
           <p className="text-sm font-bold text-slate-800">ยังไม่พบข้อมูลพนักงานของบัญชีนี้</p>
           <p className="text-xs text-slate-500 leading-relaxed">
             บัญชี <span className="font-mono text-slate-700">{user.email}</span> ยังไม่มีใน Employee Directory
