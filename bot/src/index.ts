@@ -22,6 +22,8 @@ const LATE_BUDGET_MS = 25_000;
 /** Tried in order when the main model is busy (503/500) or out of free quota (429), or no longer exists (404). */
 const FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
 const RETRY_STATUSES = new Set([404, 429, 500, 503]);
+/** Longest wait for one model before asking the next (answers normally take 1–3 s). */
+const MODEL_TIMEOUT_MS = 8000;
 
 /** The part of Cloudflare's execution context used here: work that continues after replying. */
 interface WorkerContext {
@@ -79,17 +81,26 @@ const answer = async (question: string, env: Env, signal: AbortSignal): Promise<
   let res: Response | undefined;
   for (const model of models) {
     const askedAt = Date.now();
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body,
-      signal,
-    });
+    // A model that hangs gets a fixed time, then the next one is asked
+    const attempt = AbortSignal.any([signal, AbortSignal.timeout(MODEL_TIMEOUT_MS)]);
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        body,
+        signal: attempt,
+      });
+    } catch (error) {
+      if (signal.aborted) throw error;
+      console.warn(`${model} gave no answer in ${MODEL_TIMEOUT_MS}ms, trying the next model`);
+      res = undefined;
+      continue;
+    }
     console.log(`timing model=${model} status=${res.status} gemini=${Date.now() - askedAt}ms read=${readMs}ms`);
     if (res.ok || !RETRY_STATUSES.has(res.status)) break;
     console.warn(`${model} unavailable (${res.status}): ${(await res.text()).slice(0, 120)}`);
   }
-  if (!res) throw new Error('No Gemini model to ask');
+  if (!res) return 'ตอนนี้ระบบ AI ของ Google ตอบช้ามาก ลองถามใหม่อีกสักครู่นะคะ';
   if (res.status === 429) return 'ตอนนี้มีคนถามเยอะเกินโควตาฟรีของ AI ลองถามใหม่อีกสักครู่นะคะ';
   if (RETRY_STATUSES.has(res.status)) return 'ตอนนี้ระบบ AI ของ Google มีคนใช้งานหนาแน่น ลองถามใหม่อีกสักครู่นะคะ';
   if (!res.ok) throw new Error(`Gemini error ${res.status}: ${(await res.text()).slice(0, 200)}`);
@@ -150,23 +161,17 @@ export default {
       if (!env.TEAMS_WORKFLOW_URL) {
         return teamsReply((await answerInTime(question, env, TEAMS_BUDGET_MS)) + FOOTER);
       }
-      // With one: answer straight away when Gemini is quick, otherwise say the answer is on its
-      // way and post it to the channel through the Workflow when it is ready
-      const pending = answerInTime(question, env, LATE_BUDGET_MS);
-      const quick = await Promise.race([
-        pending.then(text => ({ text })),
-        new Promise<null>(resolve => setTimeout(() => resolve(null), TEAMS_BUDGET_MS - 300)),
-      ]);
-      if (quick) return teamsReply(quick.text + FOOTER);
+      // With one: every answer goes to the channel itself as a card through the Workflow, so
+      // people see it without opening the thread. The webhook reply (always in the thread) is
+      // only a short note.
       const asker = activity.from?.name?.trim() || '';
       ctx.waitUntil(
-        pending
+        answerInTime(question, env, LATE_BUDGET_MS)
           .then(text => postToWorkflow(env.TEAMS_WORKFLOW_URL!, asker, question, text + FOOTER))
-          .catch(error => console.error('posting the late answer failed', error))
+          .then(() => console.log('answer posted to the channel'))
+          .catch(error => console.error('posting the answer failed', error))
       );
-      return teamsReply(
-        `รับคำถามแล้วค่ะ${asker ? ` คุณ${asker}` : ''} กำลังหาคำตอบให้อยู่ คำตอบจะตามมาเป็นข้อความใหม่ในแชนเนลนี้ภายในไม่กี่วินาทีนะคะ`
-      );
+      return teamsReply('รับคำถามแล้วค่ะ คำตอบจะขึ้นเป็นข้อความใหม่ในแชนเนลในไม่กี่วินาทีนะคะ 👇');
     }
 
     if (request.method === 'POST' && url.pathname === '/ask') {
