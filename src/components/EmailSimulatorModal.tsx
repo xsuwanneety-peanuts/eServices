@@ -146,7 +146,8 @@ export const EmailSimulatorModal: React.FC = () => {
                       </span>
                     ) : email.actionTaken ? (
                       <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                        ดำเนินการแล้ว: {email.actionTaken === 'approved' ? 'อนุมัติแล้ว' : 'ตีกลับแล้ว'}
+                        ดำเนินการแล้ว:{' '}
+                        {email.actionTaken === 'approved' ? 'อนุมัติแล้ว' : email.actionTaken === 'forwarded' ? 'ส่งต่อแล้ว' : 'ตีกลับแล้ว'}
                       </span>
                     ) : (
                       <span className="inline-block mt-1 text-[10px] font-bold text-red-700 bg-red-50 px-1.5 py-0.2 rounded border border-red-200">
@@ -290,7 +291,7 @@ export const EmailSimulatorModal: React.FC = () => {
                       <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
                         <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-1" />
                         <p className="text-xs font-bold text-emerald-800">
-                          คุณได้ทำการ {currentEmail.actionTaken === 'approved' ? 'อนุมัติ' : 'ตีกลับ'} คำร้องนี้แล้ว
+                          คุณได้{currentEmail.actionTaken === 'approved' ? 'อนุมัติ' : currentEmail.actionTaken === 'forwarded' ? 'ส่งต่อ' : 'ตีกลับ'}คำร้องนี้แล้ว
                         </p>
                         <p className="text-[11px] text-emerald-600 mt-0.5">
                           ระบบบันทึกการตัดสินใจและส่งต่อให้ขั้นตอนถัดไปแล้ว

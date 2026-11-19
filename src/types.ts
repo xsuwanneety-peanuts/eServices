@@ -102,6 +102,18 @@ export interface WorkflowDefinition {
   createdBy?: string;
 }
 
+/** A step handed from the person it waited on to someone else (Ticket Request: Assign / ส่งต่อ). */
+export interface StepForward {
+  fromName: string;
+  fromEmail: string;
+  toName: string;
+  toEmail: string;
+  /** Why it was handed over, or what the new person should do. */
+  reason: string;
+  /** dd.mm.yyyy hh:mm */
+  at: string;
+}
+
 export interface ApprovalAuditEntry {
   stepIndex: number;
   stepTitle: string;
@@ -115,6 +127,8 @@ export interface ApprovalAuditEntry {
   timestamp?: string;
   comment?: string;
   digitalSignatureHash?: string;
+  /** Each time the step was handed to someone else, oldest first. */
+  forwards?: StepForward[];
 }
 
 export interface DocumentRequest {
@@ -258,6 +272,9 @@ export interface KnowledgeSection {
   tip?: string;
 }
 
+/** Who may read a knowledge article. */
+export type KbVisibility = 'all' | 'department';
+
 export interface KnowledgeArticle {
   id: string;
   title: string;
@@ -275,6 +292,12 @@ export interface KnowledgeArticle {
   /** Formatted content of an article written by an employee (rich text editor JSON). */
   content?: JSONContent;
   attachments?: KbAttachment[];
+  /** Who may read it: everyone (the default) or only one department. */
+  visibility?: KbVisibility;
+  /** With 'department': the department that may read it, the author's own when written. */
+  visibleDepartmentId?: DepartmentId;
+  /** With 'department': sign-in emails (lower case) of people outside it who may also read it. */
+  sharedWith?: string[];
   /** Sign-in email of the employee who wrote it; built-in sample articles have none. */
   createdBy?: string;
   authorName?: string;
@@ -337,7 +360,8 @@ export interface ActionEmailNotification {
   stepTitle: string;
   createdAt: string;
   read: boolean;
-  actionTaken?: 'approved' | 'rejected' | null;
+  /** 'forwarded': the person handed the step to someone else instead of deciding. */
+  actionTaken?: 'approved' | 'rejected' | 'forwarded' | null;
   /** 'completed' tells the requester their request is fully approved; nothing to decide. */
   kind?: 'approval' | 'completed';
   priority?: PriorityLevel;

@@ -16,6 +16,7 @@ import {
   PriorityLevel,
   KnowledgeArticle,
   KbAttachment,
+  KbVisibility,
   MemoData,
   ItRequestData,
   PoRequestData,
@@ -55,7 +56,8 @@ import {
   itRequestTitle,
 } from '../utils/itRequest';
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
-import { deleteKbFiles, uploadKbFile } from '../utils/kbFiles';
+import { deleteKbFiles, linkKbFilesToArticlesOnce, uploadKbFile } from '../utils/kbFiles';
+import { syncUserDepartments } from '../utils/userDepartments';
 import {
   CORPORATE_DEPARTMENTS,
   USER_PERSONAS,
@@ -68,6 +70,7 @@ import { resolveStepApprover } from '../utils/approvers';
 import { AddedStep, isOfferedForm, nextRequestCode } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { markOnce, seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
+import { where } from 'firebase/firestore';
 import { useAuth } from '../components/AuthGate';
 import { SEED_SAMPLE_DATA } from '../lib/firebase';
 import { CustomFormInput, FORM_CODE_PREFIX } from '../utils/forms';
@@ -175,6 +178,9 @@ export interface KnowledgeArticleInput {
   summary: string;
   departmentId: DepartmentId;
   tags: string[];
+  visibility: KbVisibility;
+  /** With 'department': emails of people from other departments who may also read it. */
+  sharedWith: string[];
   /** Plain text of the content. */
   body: string;
   content: KnowledgeArticle['content'];
@@ -270,6 +276,8 @@ interface AppContextType {
     record?: Pick<ItRequestData, 'work'> | Pick<ItRequestData, 'acceptance'>
   ) => void;
   rejectRequest: (requestId: string, reason: string) => void;
+  /** Hand the current step to another employee instead of deciding it (Ticket Request). */
+  forwardRequest: (requestId: string, toEmployeeId: string, reason: string) => void;
   /** Requester fixes a returned request and sends it back to the step that returned it. */
   resubmitRequest: (
     requestId: string,
@@ -308,6 +316,8 @@ interface AppContextType {
   canApprove: boolean;
   /** True when the current step of the request is waiting on the current user. */
   canActOnRequest: (request: DocumentRequest) => boolean;
+  /** Whether the person who may act on the current step may also hand it to someone else. */
+  canForwardRequest: (request: DocumentRequest) => boolean;
   canViewRequest: (request: DocumentRequest) => boolean;
   /** Requests submitted by the current user. */
   myRequests: DocumentRequest[];
@@ -382,7 +392,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [formBuilder, setFormBuilder] = useState<{ deptId: DepartmentId; form: MenuItemPermission | null } | null>(
     null
   );
-  const [kbArticles, setKbArticles] = useFirestoreCollection<KnowledgeArticle>('kbArticles', handleWriteError);
+  // Admins read every article. Everyone else asks only for what the Firestore rules let them
+  // read: articles for everyone, their own department's, and their own (a listener on the
+  // whole collection would be refused once any article is limited to another department).
+  const kbScope = useMemo(() => {
+    if (isAdminLogin) return undefined;
+    const dept = linkedEmployee?.departmentId;
+    return {
+      key: `${signedInEmail}|${dept ?? ''}`,
+      queries: [
+        [where('visibility', '==', 'all')],
+        [where('createdBy', '==', signedInEmail)],
+        // Articles of another department that were shared with this person by name
+        [where('sharedWith', 'array-contains', signedInEmail)],
+        ...(dept ? [[where('visibility', '==', 'department'), where('visibleDepartmentId', '==', dept)]] : []),
+      ],
+    };
+  }, [isAdminLogin, signedInEmail, linkedEmployee?.departmentId]);
+  const [kbArticles, setKbArticles, kbArticlesLoaded] = useFirestoreCollection<KnowledgeArticle>(
+    'kbArticles',
+    handleWriteError,
+    kbScope
+  );
 
   const [menuPermissions, setMenuPermissions, permissionsLoaded] = useFirestoreCollection<MenuItemPermission>(
     'menuPermissions',
@@ -441,6 +472,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       1100
     ).catch(handleWriteError);
   }, [isAdminLogin, employeesLoaded]);
+
+  // Keep the copy of each employee's department that Firestore rules read (see userDepartments.ts)
+  const departmentsKey = employees
+    .map(e => `${e.email.toLowerCase()}:${e.departmentId}:${e.disabled ? 1 : 0}`)
+    .sort()
+    .join('|');
+  useEffect(() => {
+    if (!isAdminLogin || !employeesLoaded) return;
+    // Refused until the Firestore rules that include userDepartments are published; it runs
+    // again on the next admin sign-in, so nobody needs to see the error
+    syncUserDepartments(employees).catch(error => console.warn('userDepartments not updated:', error));
+  }, [isAdminLogin, employeesLoaded, departmentsKey]);
+
+  // Articles saved before visibility existed are readable by everyone: say so, so the rules
+  // (which let other people read only visibility 'all' or their own department) still show them
+  const articlesWithoutVisibility = kbArticles.filter(a => !a.visibility).length;
+  useEffect(() => {
+    if (!isAdminLogin || articlesWithoutVisibility === 0) return;
+    setKbArticles(prev => prev.map(a => (a.visibility ? a : { ...a, visibility: 'all' as const })));
+  }, [isAdminLogin, articlesWithoutVisibility]);
+
+  // Attachment files saved before they named their article get its id, so the rules can
+  // check the article before letting someone download them
+  const kbFilesLinkStarted = useRef(false);
+  useEffect(() => {
+    if (!isAdminLogin || !kbArticlesLoaded || kbFilesLinkStarted.current) return;
+    kbFilesLinkStarted.current = true;
+    // Refused by the older rules (chunks could not be updated); retried on a later sign-in
+    linkKbFilesToArticlesOnce(kbArticles).catch(error => console.warn('kbFiles not linked yet:', error));
+  }, [isAdminLogin, kbArticlesLoaded]);
 
   // The JRF was first saved numbering PO-yyyy-nnnn; it now numbers JRF-yyyy-nnnnn.
   // The prefix is locked in the form builder, so an admin's sign-in moves it once.
@@ -571,13 +632,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const canWriteArticles = isAdminLogin || isLinkedAccount;
   const canEditArticle = (article: KnowledgeArticle) =>
     !!article.createdBy && (isAdminLogin || article.createdBy.toLowerCase() === signedInEmail);
-  const knowledgeArticles = useMemo(() => [...kbArticles, ...KNOWLEDGE_ARTICLES], [kbArticles]);
+  // An article limited to one department is shown to its members, its author and admins only
+  const canReadArticle = (article: KnowledgeArticle) =>
+    article.visibility !== 'department' ||
+    isAdminLogin ||
+    (!!article.createdBy && article.createdBy.toLowerCase() === signedInEmail) ||
+    (article.sharedWith ?? []).includes(signedInEmail) ||
+    (isLinkedAccount && currentUser.departmentId === article.visibleDepartmentId);
+  const knowledgeArticles = useMemo(
+    () => [...kbArticles.filter(canReadArticle), ...KNOWLEDGE_ARTICLES],
+    [kbArticles, isAdminLogin, signedInEmail, isLinkedAccount, currentUser.departmentId]
+  );
 
   const saveArticle = async (input: KnowledgeArticleInput, existingId?: string): Promise<string | null> => {
     const existing = existingId ? kbArticles.find(a => a.id === existingId) : undefined;
+    // The id comes first: each uploaded file records which article it belongs to
+    const articleId = existing?.id ?? `kb-${Date.now().toString(36)}`;
     let uploaded: KbAttachment[];
     try {
-      uploaded = await Promise.all(input.newFiles.map(file => uploadKbFile(file, signedInEmail)));
+      uploaded = await Promise.all(input.newFiles.map(file => uploadKbFile(file, signedInEmail, articleId)));
     } catch (error) {
       handleWriteError(error);
       return null;
@@ -587,11 +660,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const today = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     const article: KnowledgeArticle = {
-      id: existing?.id ?? `kb-${Date.now().toString(36)}`,
+      id: articleId,
       title: input.title.trim(),
       summary: input.summary.trim(),
       departmentId: input.departmentId,
       tags: input.tags,
+      visibility: input.visibility,
+      // Limited to the author's own department, which stays the same when someone else edits it
+      ...(input.visibility === 'department'
+        ? {
+            visibleDepartmentId: existing?.visibleDepartmentId ?? currentUser.departmentId,
+            ...(input.sharedWith.length
+              ? { sharedWith: [...new Set(input.sharedWith.map(e => e.trim().toLowerCase()))] }
+              : {}),
+          }
+        : {}),
       updatedAt: `${pad(today.getDate())}.${pad(today.getMonth() + 1)}.${today.getFullYear()}`,
       // Thai has no spaces between words, so estimate from characters (~500 per minute)
       readMinutes: Math.max(1, Math.round(body.length / 500)),
@@ -946,7 +1029,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Mark the approval alerts already sent for this request as handled, so the bell clears
   // no matter where the decision was made (request window or email preview)
-  const closeOpenNotifications = (requestId: string, action: 'approved' | 'rejected') => {
+  const closeOpenNotifications = (requestId: string, action: 'approved' | 'rejected' | 'forwarded') => {
     const openIds = emailNotifications.filter(n => n.requestId === requestId && !n.actionTaken).map(n => n.id);
     if (openIds.length === 0) return;
     setEmailNotifications(prev =>
@@ -1056,6 +1139,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     showToast(record ? 'บันทึกและส่งต่อเรียบร้อยแล้ว' : `ประทับตราอนุมัติเอกสารเรียบร้อยแล้ว`, 'success');
+  };
+
+  // Hand the current step to someone else (Ticket Request: Assign / ส่งต่อ). The step keeps its
+  // title and place in the order; who it waits on changes, and the hand-over is kept in history.
+  const forwardRequest = (requestId: string, toEmployeeId: string, reason: string) => {
+    const req = requests.find(r => r.id === requestId);
+    const to = employees.find(e => e.id === toEmployeeId);
+    if (!req || !to) return;
+    const step = req.steps[req.currentStepIndex];
+    if (!step || step.status !== 'pending') return;
+    const now = new Date();
+    const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    closeOpenNotifications(requestId, 'forwarded');
+    const forward = {
+      fromName: currentUser.name,
+      fromEmail: currentUser.email,
+      toName: to.name,
+      toEmail: to.email,
+      reason,
+      at: dateStr,
+    };
+    setRequests(prev =>
+      prev.map(r => {
+        if (r.id !== requestId) return r;
+        const steps = r.steps.map((st, idx) => {
+          if (idx !== r.currentStepIndex) return st;
+          // A step open to a whole department now belongs to the one person it was given to
+          const { approverDepartmentId: _dept, ...rest } = st;
+          return {
+            ...rest,
+            approverName: to.name,
+            approverRole: to.position,
+            approverEmail: to.email,
+            forwards: [...(st.forwards ?? []), forward],
+          };
+        });
+        return { ...r, steps, updatedAt: dateStr };
+      })
+    );
+    const notif: ActionEmailNotification = {
+      id: `email-fwd-${Date.now()}`,
+      requestId: req.id,
+      requestCode: req.code,
+      requestTitle: req.title,
+      recipientEmail: to.email,
+      recipientName: to.name,
+      senderName: `ระบบเอกสารภายในองค์กร JMI E-Service (ส่งต่อจาก ${currentUser.name})`,
+      stepTitle: step.stepTitle,
+      createdAt: dateStr,
+      read: false,
+      amount: req.amount,
+    };
+    setEmailNotifications(n => [notif, ...n]);
+    showToast(`ส่งต่อให้ ${to.name} แล้ว`, 'success');
   };
 
   // Reject / Return request
@@ -1223,10 +1361,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return isLinkedAccount && !!step.approverDepartmentId && step.approverDepartmentId === currentUser.departmentId;
   };
 
+  // Only on forms where the requester picks who handles each step (Ticket Request): there the
+  // handler may pass the work on. Approval forms (memo, JRF, IT form) keep their approvers.
+  const canForwardRequest = (request: DocumentRequest): boolean => {
+    if (!canActOnRequest(request)) return false;
+    const form = menuPermissions.find(f => f.id === request.formId);
+    return !!form?.requesterAddsSteps && !form.template;
+  };
+
   const canViewRequest = (request: DocumentRequest): boolean => {
     if (isSystemAdmin) return true;
     if (request.requestorId === currentUser.id) return true;
     if (request.steps.some(step => step.status !== 'waiting' && isMine(step.approverEmail))) return true;
+    // Whoever handed a step on keeps seeing the request they passed along
+    if (request.steps.some(step => step.forwards?.some(f => isMine(f.fromEmail)))) return true;
     // Members of the department that handles the request see it, whatever their role
     return request.departmentId === currentUser.departmentId;
   };
@@ -1342,6 +1490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createNewRequest,
         approveRequest,
         rejectRequest,
+        forwardRequest,
         resubmitRequest,
         activeRequest,
         setActiveRequestId,
@@ -1364,6 +1513,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         canAccessTab: (tab: string) => canUserAccessTab(isAdminLogin, tab),
         canApprove,
         canActOnRequest,
+        canForwardRequest,
         canViewRequest,
         myRequests,
         approvalQueue,

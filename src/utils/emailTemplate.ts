@@ -43,6 +43,11 @@ export const renderStepEmail = (
     previous?.status === 'approved' && previous.comment?.trim()
       ? `ความเห็นจากผู้อนุมัติก่อนหน้า : ${previous.comment.trim()} (คุณ${previous.approverName})`
       : '';
+  // Handed on to this person (Ticket Request): who passed it and why
+  const lastForward = stepIndex > 0 ? steps[stepIndex]?.forwards?.slice(-1)[0] : undefined;
+  const handOver = lastForward
+    ? `ส่งต่อจาก : คุณ${lastForward.fromName}${lastForward.reason ? ` (${lastForward.reason})` : ''}`
+    : '';
   const systemLink = typeof window !== 'undefined' ? `${window.location.origin}${import.meta.env.BASE_URL}` : '';
 
   return {
@@ -57,6 +62,7 @@ export const renderStepEmail = (
       `ผู้ยื่นคำร้อง : คุณ${requestorName} (${requestorDepartment})`,
       `ขั้นตอนที่รอท่าน : ${stepLine}`,
       ...(previousComment ? [previousComment] : []),
+      ...(handOver ? [handOver] : []),
       '',
       'กรุณาเข้าสู่ระบบ JMI E-Service เพื่อตรวจสอบรายละเอียด และพิจารณาอนุมัติหรือตีกลับคำร้อง',
       ...(systemLink ? [systemLink] : []),

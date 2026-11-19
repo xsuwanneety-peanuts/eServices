@@ -22,7 +22,25 @@ import {
   Search,
   SearchX,
   Building2,
+  Lock,
 } from 'lucide-react';
+
+/** Marks an article only one department can read, naming that department. */
+const LimitedBadge: React.FC<{ article: KnowledgeArticle }> = ({ article }) => {
+  const { departments } = useApp();
+  if (article.visibility !== 'department') return null;
+  const dept = departments.find(d => d.id === article.visibleDepartmentId);
+  return (
+    <span
+      title="บทความนี้เห็นได้เฉพาะหน่วยงานนี้ คนที่เพิ่มรายชื่อไว้ ผู้เขียน และผู้ดูแลระบบ"
+      className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md"
+    >
+      <Lock className="w-3 h-3" />
+      เฉพาะ {dept?.nameEn ?? 'หน่วยงาน'}
+      {!!article.sharedWith?.length && <> + {article.sharedWith.length} คน</>}
+    </span>
+  );
+};
 
 /** All searchable text of an article, lower-cased. */
 const articleSearchText = (article: KnowledgeArticle): string =>
@@ -126,13 +144,6 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void; onWrite: () => void 
     );
   }, [articles, searchQuery, deptFilter]);
 
-  const chipClass = (isActive: boolean) =>
-    `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer whitespace-nowrap ${
-      isActive
-        ? 'bg-red-600 border-red-600 text-white'
-        : 'bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-700'
-    }`;
-
   return (
     <div className="space-y-5">
       {/* Page header */}
@@ -155,45 +166,36 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void; onWrite: () => void 
         )}
       </div>
 
-      {/* Search + department filter */}
-      <div className="space-y-3">
-        <div className="relative max-w-xl">
+      {/* Search + department filter: many departments, so the filter is a dropdown */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1 max-w-xl">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="ค้นหาความรู้ เช่น VPN, การลา, เบิกค่าใช้จ่าย..."
+            aria-label="ค้นหาบทความ"
             className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-red-500"
           />
         </div>
-
-        <div className="flex flex-wrap gap-2" role="group" aria-label="กรองตามหน่วยงาน">
-          <button
-            type="button"
-            onClick={() => setDeptFilter('all')}
-            aria-pressed={deptFilter === 'all'}
-            className={chipClass(deptFilter === 'all')}
+        <div className="relative sm:w-72">
+          <Building2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <select
+            value={deptFilter}
+            onChange={e => setDeptFilter(e.target.value as DepartmentId | 'all')}
+            aria-label="ดูตามหน่วยงาน"
+            className={`w-full pl-9 pr-3 py-2.5 bg-white border rounded-xl text-sm focus:outline-hidden focus:border-red-500 cursor-pointer ${
+              deptFilter === 'all' ? 'border-slate-200 text-slate-700' : 'border-red-300 text-red-700 font-semibold'
+            }`}
           >
-            ทั้งหมด ({articles.length})
-          </button>
-          {ownerDepts.map(dept => {
-            const Icon = DEPT_ICONS[dept.id];
-            const count = articles.filter(a => a.departmentId === dept.id).length;
-            const isActive = deptFilter === dept.id;
-            return (
-              <button
-                key={dept.id}
-                type="button"
-                onClick={() => setDeptFilter(dept.id)}
-                aria-pressed={isActive}
-                className={chipClass(isActive)}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {dept.nameEn} ({count})
-              </button>
-            );
-          })}
+            <option value="all">ทุกหน่วยงาน ({articles.length})</option>
+            {ownerDepts.map(dept => (
+              <option key={dept.id} value={dept.id}>
+                {dept.nameEn} ({articles.filter(a => a.departmentId === dept.id).length})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -210,9 +212,12 @@ const ArticleList: React.FC<{ onOpen: (id: string) => void; onWrite: () => void 
                 onClick={() => onOpen(article.id)}
                 className="group text-left bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col cursor-pointer"
               >
-                <span className="inline-flex items-center gap-1.5 self-start text-[11px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
-                  <Icon className="w-3.5 h-3.5" />
-                  {dept?.nameEn}
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
+                    <Icon className="w-3.5 h-3.5" />
+                    {dept?.nameEn}
+                  </span>
+                  <LimitedBadge article={article} />
                 </span>
                 <span className="mt-3 text-base font-bold text-slate-900 leading-snug group-hover:text-red-700 transition-colors">
                   {article.title}
@@ -294,9 +299,12 @@ const ArticleDetail: React.FC<{ article: KnowledgeArticle; onBack: () => void; o
         {/* Article body */}
         <article className="lg:col-span-8 bg-white rounded-2xl p-5 sm:p-7 border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
-              <Icon className="w-3.5 h-3.5" />
-              {dept?.nameEn}
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-700 bg-red-50 border border-red-100 px-2 py-0.5 rounded-md">
+                <Icon className="w-3.5 h-3.5" />
+                {dept?.nameEn}
+              </span>
+              <LimitedBadge article={article} />
             </span>
             {canEditArticle(article) && (
               <button

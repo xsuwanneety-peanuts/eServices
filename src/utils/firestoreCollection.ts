@@ -5,6 +5,8 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  query,
+  QueryConstraint,
   serverTimestamp,
   setDoc,
   writeBatch,
@@ -12,6 +14,13 @@ import {
 import { db } from '../lib/firebase';
 
 type WithId = { id: string };
+
+/** Read only the documents matching any of these queries (one listener each), merged by id. */
+export interface CollectionScope {
+  /** Changes whenever the queries do, so the listeners are set up again. */
+  key: string;
+  queries: QueryConstraint[][];
+}
 type Updater<T> = T[] | ((prev: T[]) => T[]);
 
 /** JSON with sorted keys, so items read back from Firestore compare equal to local ones. */
@@ -36,7 +45,11 @@ const stableStringify = (value: unknown): string => {
  * `_order` is stored with each document to keep list order: items added at the front of the
  * array (e.g. a new request) sort first, items added elsewhere sort last.
  */
-export const useFirestoreCollection = <T extends WithId>(name: string, onWriteError: (error: unknown) => void) => {
+export const useFirestoreCollection = <T extends WithId>(
+  name: string,
+  onWriteError: (error: unknown) => void,
+  scope?: CollectionScope
+) => {
   const [items, setItemsState] = useState<T[]>([]);
   const [loaded, setLoaded] = useState(false);
   const itemsRef = useRef<T[]>([]);
@@ -44,28 +57,47 @@ export const useFirestoreCollection = <T extends WithId>(name: string, onWriteEr
   const onErrorRef = useRef(onWriteError);
   onErrorRef.current = onWriteError;
 
-  useEffect(
-    () =>
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const scopeKey = scope?.key ?? '*';
+
+  useEffect(() => {
+    const queries = scopeRef.current?.queries ?? [[]];
+    // Each listener's latest rows; the list is all of them together, without duplicates
+    const parts: (Map<string, { item: T; order: number }> | undefined)[] = queries.map(() => undefined);
+    const publish = () => {
+      if (parts.some(p => p === undefined)) return;
+      const merged = new Map<string, { item: T; order: number }>();
+      parts.forEach(p => p!.forEach((row, id) => merged.set(id, row)));
+      const rows = [...merged.values()].sort((a, b) => a.order - b.order);
+      orderRef.current = new Map(rows.map(r => [r.item.id, r.order]));
+      itemsRef.current = rows.map(r => r.item);
+      setItemsState(itemsRef.current);
+      setLoaded(true);
+    };
+    const unsubscribes = queries.map((constraints, index) =>
       onSnapshot(
-        collection(db, name),
+        constraints.length ? query(collection(db, name), ...constraints) : collection(db, name),
         snapshot => {
-          const rows = snapshot.docs.map(d => {
-            const { _order, ...data } = d.data() as Record<string, unknown>;
-            return { item: { ...data, id: d.id } as T, order: typeof _order === 'number' ? _order : 0 };
-          });
-          rows.sort((a, b) => a.order - b.order);
-          orderRef.current = new Map(rows.map(r => [r.item.id, r.order]));
-          itemsRef.current = rows.map(r => r.item);
-          setItemsState(itemsRef.current);
-          setLoaded(true);
+          parts[index] = new Map(
+            snapshot.docs.map(d => {
+              const { _order, ...data } = d.data() as Record<string, unknown>;
+              return [d.id, { item: { ...data, id: d.id } as T, order: typeof _order === 'number' ? _order : 0 }];
+            })
+          );
+          publish();
         },
         error => {
           onErrorRef.current(error);
+          // Show what the other listeners found rather than waiting forever
+          parts[index] = parts[index] ?? new Map();
+          publish();
           setLoaded(true);
         }
-      ),
-    [name]
-  );
+      )
+    );
+    return () => unsubscribes.forEach(stop => stop());
+  }, [name, scopeKey]);
 
   const setItems = useCallback(
     (updater: Updater<T>) => {
