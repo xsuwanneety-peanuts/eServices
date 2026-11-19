@@ -13,6 +13,7 @@ import { WorkflowBuilderView } from './components/WorkflowBuilderView';
 import { EmployeeDirectoryView } from './components/EmployeeDirectoryView';
 import { FormModals } from './components/FormModals';
 import { KnowledgeBaseView } from './components/KnowledgeBaseView';
+import { AssistanceView } from './components/AssistanceView';
 import { NewRequestModal } from './components/NewRequestModal';
 import { EmailSimulatorModal } from './components/EmailSimulatorModal';
 import { RequestDetailModal } from './components/RequestDetailModal';
@@ -111,6 +112,7 @@ const AppContent: React.FC = () => {
           {activeTab === 'workflow_builder' && <WorkflowBuilderView />}
           {activeTab === 'employee_directory' && <EmployeeDirectoryView />}
           {activeTab === 'knowledge_base' && <KnowledgeBaseView />}
+          {activeTab === 'assistance' && <AssistanceView />}
         </div>
       </main>
 

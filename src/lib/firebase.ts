@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
+import { ReCaptchaEnterpriseProvider, initializeAppCheck } from 'firebase/app-check';
 
 // Which Firebase project the app talks to depends on how it was started:
 //   npm run dev   -> .env.development (development project)
@@ -27,6 +28,25 @@ if (missing.length > 0) {
 
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
+// App Check proves requests come from this app (reCAPTCHA Enterprise / Fraud Defense). Firebase AI
+// Logic requires it from 21 Jan 2027; Firestore and Auth only monitor it for now. The site key
+// is public, one per environment in .env.*; without one, App Check is simply not started.
+const RECAPTCHA_SITE_KEY = env.VITE_RECAPTCHA_SITE_KEY;
+if (RECAPTCHA_SITE_KEY) {
+  if (env.DEV) {
+    // On localhost reCAPTCHA cannot vouch for the page, so App Check uses a debug token: one
+    // made under App Check > Apps > Manage debug tokens of the development project and kept in
+    // .env.local (git-ignored) as VITE_APPCHECK_DEBUG_TOKEN. Without it, the SDK prints a new
+    // token in the browser console that has to be added there instead.
+    (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN =
+      env.VITE_APPCHECK_DEBUG_TOKEN || true;
+  }
+  initializeAppCheck(firebaseApp, {
+    provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 // Optional fields are left undefined throughout the app; Firestore would reject them otherwise
 export const db = initializeFirestore(firebaseApp, { ignoreUndefinedProperties: true });
 
