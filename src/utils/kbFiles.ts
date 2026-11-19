@@ -1,4 +1,4 @@
-import { Bytes, doc, getDoc, writeBatch } from 'firebase/firestore';
+import { Bytes, doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { KbAttachment } from '../types';
 
@@ -16,8 +16,14 @@ const chunkId = (fileId: string, index: number) => `${fileId}_${index}`;
 export const formatFileSize = (bytes: number): string =>
   bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
-/** Save a file's bytes and return what the article keeps about it. */
-export const uploadKbFile = async (file: File, createdBy: string): Promise<KbAttachment> => {
+/** Marker for the one-time job that names each saved file's article (see linkKbFilesToArticles). */
+export const KB_FILES_ARTICLE_MARKER = 'kb-files-linked-to-articles';
+
+/**
+ * Save a file's bytes and return what the article keeps about it. Each chunk names its
+ * article, so the Firestore rules can let only the article's readers download it.
+ */
+export const uploadKbFile = async (file: File, createdBy: string, articleId: string): Promise<KbAttachment> => {
   const id = `kbf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const data = new Uint8Array(await file.arrayBuffer());
   const chunks = Math.max(1, Math.ceil(data.length / CHUNK_BYTES));
@@ -27,6 +33,7 @@ export const uploadKbFile = async (file: File, createdBy: string): Promise<KbAtt
       fileId: id,
       index: i,
       createdBy,
+      articleId,
       data: Bytes.fromUint8Array(data.subarray(i * CHUNK_BYTES, (i + 1) * CHUNK_BYTES)),
     });
   }
@@ -64,4 +71,35 @@ export const deleteKbFiles = async (attachments: KbAttachment[]): Promise<void> 
     for (let i = 0; i < a.chunks; i++) batch.delete(doc(db, COLLECTION, chunkId(a.id, i)));
   });
   await batch.commit();
+};
+
+/**
+ * Files saved before chunks named their article get its id (admins only). Recorded as done
+ * only once every chunk is updated, so a run refused by older Firestore rules is retried.
+ */
+export const linkKbFilesToArticlesOnce = async (
+  articles: { id: string; attachments?: KbAttachment[] }[]
+): Promise<void> => {
+  const marker = doc(db, 'meta', KB_FILES_ARTICLE_MARKER);
+  if ((await getDoc(marker)).exists()) return;
+  await linkKbFilesToArticles(articles);
+  await setDoc(marker, { doneAt: serverTimestamp() });
+};
+
+const linkKbFilesToArticles = async (
+  articles: { id: string; attachments?: KbAttachment[] }[]
+): Promise<void> => {
+  const ids = articles.flatMap(article =>
+    (article.attachments ?? []).flatMap(a =>
+      Array.from({ length: a.chunks }, (_, i) => ({ chunk: chunkId(a.id, i), articleId: article.id }))
+    )
+  );
+  // A batch holds at most 500 writes
+  for (let start = 0; start < ids.length; start += 400) {
+    const batch = writeBatch(db);
+    ids.slice(start, start + 400).forEach(({ chunk, articleId }) =>
+      batch.set(doc(db, COLLECTION, chunk), { articleId }, { merge: true })
+    );
+    await batch.commit();
+  }
 };

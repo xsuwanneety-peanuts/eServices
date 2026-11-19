@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { DepartmentId, KbAttachment, KnowledgeArticle } from '../types';
+import { DepartmentId, KbAttachment, KbVisibility, KnowledgeArticle } from '../types';
 import { MAX_FILES_PER_ARTICLE, MAX_FILE_BYTES, formatFileSize } from '../utils/kbFiles';
-import { Paperclip, Trash2, X } from 'lucide-react';
+import { Globe, Lock, Paperclip, Trash2, X } from 'lucide-react';
 import type { JSONContent } from '@tiptap/react';
 import { RichTextEditor } from './RichText';
 import { askConfirm } from './ConfirmDialog';
+import { ArticleSharePicker } from './ArticleSharePicker';
 
 /** Write or edit a Knowledge Base article, with attached files. */
 export const ArticleEditorModal: React.FC<{
@@ -20,6 +21,12 @@ export const ArticleEditorModal: React.FC<{
   const [summary, setSummary] = useState(article?.summary ?? '');
   const [departmentId, setDepartmentId] = useState<DepartmentId>(article?.departmentId ?? currentUser.departmentId);
   const [tagsText, setTagsText] = useState(article?.tags.join(', ') ?? '');
+  const [visibility, setVisibility] = useState<KbVisibility>(article?.visibility ?? 'all');
+  // A limited article stays with the department it was first limited to (the author's)
+  const visibleDeptId = article?.visibleDepartmentId ?? currentUser.departmentId;
+  const visibleDeptName = departments.find(d => d.id === visibleDeptId)?.nameEn ?? visibleDeptId;
+  // People from other departments who may also read a department-only article
+  const [sharedWith, setSharedWith] = useState<string[]>(article?.sharedWith ?? []);
   const [body, setBody] = useState(article?.body ?? '');
   const [content, setContent] = useState<JSONContent | undefined>(article?.content);
   const [kept, setKept] = useState<KbAttachment[]>(article?.attachments ?? []);
@@ -55,6 +62,8 @@ export const ArticleEditorModal: React.FC<{
         summary,
         departmentId,
         tags: tagsText.split(',').map(t => t.trim()).filter(Boolean),
+        visibility,
+        sharedWith: visibility === 'department' ? sharedWith : [],
         body,
         content,
         keptAttachments: kept,
@@ -166,6 +175,49 @@ export const ArticleEditorModal: React.FC<{
               />
             </div>
           </div>
+
+          <fieldset>
+            <legend className="block font-semibold text-slate-700 mb-1">ใครเห็นบทความนี้ได้</legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(
+                [
+                  ['all', Globe, 'ทุกหน่วยงาน', 'พนักงานทุกคนอ่านได้'],
+                  [
+                    'department',
+                    Lock,
+                    `เฉพาะหน่วยงาน ${visibleDeptName}`,
+                    'คนในหน่วยงานนี้ คนที่เพิ่มรายชื่อไว้ ผู้เขียน และผู้ดูแลระบบเท่านั้น',
+                  ],
+                ] as [KbVisibility, typeof Globe, string, string][]
+              ).map(([value, Icon, label, hint]) => (
+                <label
+                  key={value}
+                  className={`flex items-start gap-2 p-2.5 rounded-lg border cursor-pointer ${
+                    visibility === value ? 'border-red-400 bg-red-50/60' : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="kb-visibility"
+                    value={value}
+                    checked={visibility === value}
+                    onChange={() => setVisibility(value)}
+                    className="mt-0.5 w-3.5 h-3.5 text-red-600 cursor-pointer"
+                  />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-1 font-semibold text-slate-800">
+                      <Icon className="w-3.5 h-3.5 shrink-0 text-slate-500" />
+                      {label}
+                    </span>
+                    <span className="block text-[11px] text-slate-500">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {visibility === 'department' && (
+              <ArticleSharePicker emails={sharedWith} onChange={setSharedWith} ownDepartmentId={visibleDeptId} />
+            )}
+          </fieldset>
 
           <div>
             <label htmlFor="kb-summary" className="block font-semibold text-slate-700 mb-1">

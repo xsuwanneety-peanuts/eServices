@@ -8,7 +8,11 @@ rules_version = '2';
 // - Anyone signed in can create a form (and its workflow) for their department;
 //   only its creator or an admin can change or delete it afterwards.
 // - Anyone signed in can write Knowledge Base articles and attach files;
-//   only the author or an admin can change or delete them.
+//   only the author or an admin can change or delete them. An article limited to one
+//   department (visibility 'department'), and its files, can be read only by that
+//   department's employees, the people it is shared with by name, its author and admins. Everyone signed in reads the others.
+// - userDepartments/{email} copies each employee's department for these checks; the app
+//   keeps it in step when an admin signs in. People read only their own copy.
 // - Only the admin accounts listed in isAdmin() can change employees, the
 //   original IT forms and their workflows, or delete requests.
 service cloud.firestore {
@@ -63,19 +67,61 @@ service cloud.firestore {
       allow delete: if isAdmin() || ownsExisting();
     }
 
+    // Whether the signed-in person is an active employee of this department, from their copy
+    // in userDepartments (written by an admin's app from the Employee Directory)
+    function inMyDepartment(dept) {
+      let path = /databases/$(database)/documents/userDepartments/$(request.auth.token.email);
+      return exists(path)
+        && get(path).data.get('disabled', false) == false
+        && get(path).data.departmentId == dept;
+    }
+
+    // Whether the signed-in person may read an article's data (used for its files)
+    function canReadArticle(article) {
+      return isAdmin()
+        || article.get('visibility', 'all') == 'all'
+        || article.get('createdBy', '') == request.auth.token.email
+        || request.auth.token.email in article.get('sharedWith', [])
+        || (article.get('visibility', 'all') == 'department'
+            && inMyDepartment(article.get('visibleDepartmentId', '')));
+    }
+
+    match /userDepartments/{email} {
+      allow read: if isAdmin() || (signedIn() && request.auth.token.email == email);
+      allow write: if isAdmin();
+    }
+
     // Knowledge Base articles any employee writes; only the author or an admin changes them
     match /kbArticles/{id} {
-      allow read: if signedIn();
+      // Written out field by field so the app's queries (visibility == 'all', createdBy == me,
+      // sharedWith array-contains me, and visibility == 'department' with visibleDepartmentId ==
+      // my department) are allowed
+      allow read: if isAdmin()
+        || (signedIn() && (
+          resource.data.visibility == 'all'
+          || resource.data.createdBy == request.auth.token.email
+          || request.auth.token.email in resource.data.sharedWith
+          || (resource.data.visibility == 'department'
+              && inMyDepartment(resource.data.visibleDepartmentId))
+        ));
       allow create: if createsAsSelf();
       allow update: if isAdmin() || (ownsExisting() && createsAsSelf());
       allow delete: if isAdmin() || ownsExisting();
     }
 
-    // Bytes of files attached to articles, split into chunks (each chunk records its uploader)
+    // Bytes of files attached to articles, split into chunks. Each chunk records its uploader
+    // and its article; it can be read by whoever can read that article. Chunks saved before
+    // they named their article are readable as before until an admin's app fills it in.
     match /kbFiles/{id} {
-      allow read: if signedIn();
+      allow read: if signedIn() && (
+        isAdmin()
+        || resource.data.get('createdBy', '') == request.auth.token.email
+        || resource.data.get('articleId', '') == ''
+        || canReadArticle(get(/databases/$(database)/documents/kbArticles/$(resource.data.articleId)).data)
+      );
       allow create: if createsAsSelf();
-      allow update: if false;
+      // Only an admin's app updates a chunk, to record its article
+      allow update: if isAdmin();
       allow delete: if isAdmin() || ownsExisting();
     }
 

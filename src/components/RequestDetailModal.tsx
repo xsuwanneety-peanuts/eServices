@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ItStepPanel } from './ItStepPanel';
 import { RequestDetails } from './RequestDetails';
+import { ForwardPanel } from './ForwardPanel';
 import {
   X,
   CheckCircle2,
@@ -19,6 +20,7 @@ import {
   Building,
   DollarSign,
   AlertTriangle,
+  Forward,
 } from 'lucide-react';
 
 export const RequestDetailModal: React.FC = () => {
@@ -30,6 +32,7 @@ export const RequestDetailModal: React.FC = () => {
     currentUser,
     setIsPrintModalOpen,
     canActOnRequest,
+    canForwardRequest,
     resubmitRequest,
     showToast,
   } = useApp();
@@ -46,10 +49,13 @@ export const RequestDetailModal: React.FC = () => {
   const [decisionComment, setDecisionComment] = useState('');
   // On an IT & Request Form task step the work form shows first; this switches to sending it back
   const [isRejecting, setIsRejecting] = useState(false);
+  // Ticket Request: handing the step to someone else instead of deciding it
+  const [isForwarding, setIsForwarding] = useState(false);
   // A comment typed for one request is not carried over to the next one opened
   useEffect(() => {
     setDecisionComment('');
     setIsRejecting(false);
+    setIsForwarding(false);
   }, [activeRequest?.id]);
 
   if (!activeRequest) return null;
@@ -60,6 +66,7 @@ export const RequestDetailModal: React.FC = () => {
   const isReturned = activeRequest.status === 'returned';
   // Only the person responsible for the current step may approve or return it
   const canDecide = canActOnRequest(activeRequest);
+  const canForward = canForwardRequest(activeRequest);
   // The requester can fix a returned request and send it again
   const canResubmit = isReturned && activeRequest.requestorId === currentUser.id;
   const returnedStep = activeRequest.steps.find(s => s.status === 'rejected');
@@ -311,6 +318,24 @@ export const RequestDetailModal: React.FC = () => {
                         ผู้อนุมัติ: <strong className="text-slate-800">{st.approverName}</strong> ({st.approverRole})
                       </div>
 
+                      {/* Hand-overs of this step, oldest first */}
+                      {st.forwards?.map((fw, i) => (
+                        <div
+                          key={i}
+                          className="mt-2 p-2 rounded-lg bg-indigo-50/70 border border-indigo-100 text-slate-700"
+                        >
+                          <div className="flex flex-wrap items-center gap-1 text-indigo-900">
+                            <Forward className="w-3 h-3 shrink-0" />
+                            <span>ส่งต่อจาก</span>
+                            <strong>{fw.fromName}</strong>
+                            <span>ถึง</span>
+                            <strong>{fw.toName}</strong>
+                            <span className="text-[11px] text-slate-400">· {fw.at}</span>
+                          </div>
+                          {fw.reason && <p className="mt-0.5 pl-4 italic">"{fw.reason}"</p>}
+                        </div>
+                      ))}
+
                       {st.comment && (
                         <div className="mt-2 p-2 rounded-lg bg-white/80 border border-slate-200 text-slate-700 italic">
                           "{st.comment}"
@@ -338,7 +363,10 @@ export const RequestDetailModal: React.FC = () => {
           {isPending && canDecide && activeRequest.itRequest && currentStep?.task && !isRejecting && (
             <ItStepPanel request={activeRequest} onReturn={() => setIsRejecting(true)} />
           )}
-          {isPending && canDecide && !(activeRequest.itRequest && currentStep?.task && !isRejecting) && (
+          {isPending && canForward && isForwarding && (
+            <ForwardPanel request={activeRequest} onCancel={() => setIsForwarding(false)} />
+          )}
+          {isPending && canDecide && !isForwarding && !(activeRequest.itRequest && currentStep?.task && !isRejecting) && (
             <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50/30 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-red-950 flex items-center gap-1.5">
@@ -387,6 +415,15 @@ export const RequestDetailModal: React.FC = () => {
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>ประทับตราอนุมัติ (Digital Approve)</span>
+                  </button>
+                )}
+                {canForward && (
+                  <button
+                    onClick={() => setIsForwarding(true)}
+                    className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-white hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 font-semibold text-xs border border-slate-300 cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Forward className="w-3.5 h-3.5" />
+                    ส่งต่อ / Assign
                   </button>
                 )}
                 <button
