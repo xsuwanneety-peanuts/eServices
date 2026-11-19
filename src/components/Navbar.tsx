@@ -18,6 +18,7 @@ import {
   Pencil,
   Plus,
   BookOpen,
+  Sparkles,
   LogOut,
   Download,
   ShieldCheck,
@@ -37,8 +38,16 @@ const FORMS_GROUP_LABEL = 'แบบฟอร์ม';
 const ADMIN_GROUP_LABEL = 'การจัดการระบบ';
 const HOME_LABEL = 'เมนูของฉัน';
 const KB_LABEL = 'Knowledge Base';
+const KNOWLEDGE_LABEL = 'Knowledge';
+const ASSIST_LABEL = 'Assistance';
 
-type OpenMenu = 'dept' | 'admin' | 'notif' | 'profile' | 'mobile' | null;
+// The Knowledge menu: articles, and the assistant that answers from them
+const KNOWLEDGE_ITEMS = [
+  { tab: 'knowledge_base', name: KB_LABEL, hint: 'บทความและคู่มือของแต่ละหน่วยงาน', icon: BookOpen },
+  { tab: 'assistance', name: ASSIST_LABEL, hint: 'ถาม AI จากคลังความรู้และเอกสารของคุณ', icon: Sparkles },
+];
+
+type OpenMenu = 'dept' | 'knowledge' | 'admin' | 'notif' | 'profile' | 'mobile' | null;
 
 interface NavbarProps {
   /** True once the main content has been scrolled, used to show the navbar shadow. */
@@ -99,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
     showToast(`ดาวน์โหลดสำรองข้อมูลแล้ว (พนักงาน ${employees.length} คน, คำร้อง ${requests.length} รายการ)`, 'success');
   };
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
-  const [mobileSection, setMobileSection] = useState<'dept' | 'admin' | null>(null);
+  const [mobileSection, setMobileSection] = useState<'dept' | 'knowledge' | 'admin' | null>(null);
   const headerRef = useRef<HTMLElement>(null);
 
   // Bell badge: approvals waiting on me + unseen progress on my own requests
@@ -162,6 +171,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
 
   const isHomeActive = activeTab === 'my_workspace';
   const isKbActive = activeTab === 'knowledge_base';
+  const isAssistActive = activeTab === 'assistance';
+  const isKnowledgeActive = isKbActive || isAssistActive;
   const activeArticle = isKbActive ? KNOWLEDGE_ARTICLES.find(a => a.id === activeArticleId) : undefined;
   // System-management screens this user may open
   const adminItems = ADMIN_NAV_ITEMS.filter(item => canAccessTab(item.tab));
@@ -170,8 +181,10 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   // Breadcrumb trail shown under the navbar
   const breadcrumb: string[] = isKbActive
       ? activeArticle
-        ? [KB_LABEL, activeArticle.title]
-        : [KB_LABEL]
+        ? [KNOWLEDGE_LABEL, KB_LABEL, activeArticle.title]
+        : [KNOWLEDGE_LABEL, KB_LABEL]
+    : isAssistActive
+      ? [KNOWLEDGE_LABEL, ASSIST_LABEL]
     : activeAdminItem
       ? [ADMIN_GROUP_LABEL, activeAdminItem.name]
       : [HOME_LABEL];
@@ -247,14 +260,46 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             />
           </button>
 
-          <button
-            onClick={() => goTo('knowledge_base')}
-            aria-current={isKbActive ? 'page' : undefined}
-            className={topLinkClass(isKbActive)}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>{KB_LABEL}</span>
-          </button>
+          <div className="relative flex">
+            <button
+              onClick={() => toggleMenu('knowledge')}
+              aria-haspopup="true"
+              aria-expanded={openMenu === 'knowledge'}
+              className={topLinkClass(isKnowledgeActive, openMenu === 'knowledge')}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>{KNOWLEDGE_LABEL}</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform ${openMenu === 'knowledge' ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {openMenu === 'knowledge' && (
+              <div className="absolute left-0 top-full mt-px w-80 bg-white rounded-b-2xl shadow-xl border border-slate-200 border-t-0 py-2 z-50">
+                {KNOWLEDGE_ITEMS.map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.tab;
+                  return (
+                    <button
+                      key={item.tab}
+                      onClick={() => goTo(item.tab)}
+                      className={`w-full flex items-start gap-2.5 px-3.5 py-2.5 text-left border-l-4 transition-colors cursor-pointer ${
+                        isActive
+                          ? 'bg-red-50 text-red-700 border-red-600'
+                          : 'border-transparent text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? 'text-red-600' : 'text-slate-500'}`} />
+                      <span className="min-w-0">
+                        <span className={`block text-xs ${isActive ? 'font-bold' : 'font-semibold'}`}>{item.name}</span>
+                        <span className="block text-[11px] text-slate-500">{item.hint}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {adminItems.length > 0 && (
           <div className="relative flex">
@@ -635,16 +680,42 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
           )}
 
           <button
-            onClick={() => goTo('knowledge_base')}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-4 text-sm text-left cursor-pointer ${
-              isKbActive
-                ? 'bg-red-50 text-red-700 font-bold border-red-600'
-                : 'border-transparent text-slate-700 font-medium hover:bg-slate-50'
+            onClick={() => setMobileSection(prev => (prev === 'knowledge' ? null : 'knowledge'))}
+            aria-expanded={mobileSection === 'knowledge'}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-l-4 border-transparent text-sm text-left cursor-pointer hover:bg-slate-50 ${
+              isKnowledgeActive ? 'text-red-700 font-bold' : 'text-slate-700 font-medium'
             }`}
           >
-            <BookOpen className={`w-4 h-4 ${isKbActive ? 'text-red-600' : 'text-slate-500'}`} />
-            <span>{KB_LABEL}</span>
+            <span className="flex items-center gap-2.5">
+              <BookOpen className={`w-4 h-4 ${isKnowledgeActive ? 'text-red-600' : 'text-slate-500'}`} />
+              {KNOWLEDGE_LABEL}
+            </span>
+            <ChevronDown
+              className={`w-4 h-4 text-slate-400 transition-transform ${mobileSection === 'knowledge' ? 'rotate-180' : ''}`}
+            />
           </button>
+          {mobileSection === 'knowledge' && (
+            <div className="pl-3 pb-1 space-y-0.5">
+              {KNOWLEDGE_ITEMS.map(item => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.tab;
+                return (
+                  <button
+                    key={item.tab}
+                    onClick={() => goTo(item.tab)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border-l-4 text-xs text-left cursor-pointer ${
+                      isActive
+                        ? 'bg-red-50 text-red-700 font-bold border-red-600'
+                        : 'border-transparent text-slate-700 font-medium hover:bg-slate-50'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-red-600' : 'text-slate-400'}`} />
+                    <span>{item.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Accordion: การจัดการระบบ (only the screens this user may open) */}
           {adminItems.length > 0 && (
