@@ -1,0 +1,11 @@
+# Cloudflare Worker for the JMI E-Service Teams bot. Setup: bot/README.md
+name = "jmi-eservice-bot"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+# Public settings. Secrets (Gemini key, Teams token, bot password) are set with
+# "npx wrangler secret put <NAME>", never written here.
+[vars]
+# The UAT Firebase project (same public values as .env.production)
+FIREBASE_API_KEY = "AIzaSyDsCOqypAmjATN0qUni2qNik6B__L5FaDQ"
+FIREBASE_PROJECT_ID = "e-service-uat-e8402"
