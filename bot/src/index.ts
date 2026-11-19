@@ -1,5 +1,5 @@
 import { KNOWLEDGE_ARTICLES } from '../../src/data/knowledgeBase';
-import { ASSISTANT_MODEL, SYSTEM_INSTRUCTION, buildContext } from '../../src/utils/assistantPrompt';
+import { ASSISTANT_MODEL, buildContext } from '../../src/utils/assistantPrompt';
 import type { Env } from './env';
 import { readOpenArticles } from './firestore';
 import { relevantArticles } from './relevance';
@@ -36,13 +36,13 @@ const HELP =
  * The Assistance rules answer only from the Knowledge Base. In Teams people also ask everyday
  * questions, so the bot may fall back on general knowledge, labelled as such.
  */
-const BOT_INSTRUCTION = `${SYSTEM_INSTRUCTION}
-
-ข้อยกเว้นสำหรับบอทใน Microsoft Teams (ใช้แทนกฎข้อ 2 และ 3):
-- ถ้าบทความ Knowledge Base ตอบได้ ให้ตอบจากบทความก่อนเสมอ และบอกชื่อบทความ
-- ถ้าไม่พบในบทความ ให้ขึ้นต้นด้วยบรรทัดนี้ก่อน: "ℹ️ ไม่พบเรื่องนี้ใน Knowledge Base ของบริษัท ข้อมูลต่อไปนี้เป็นความรู้ทั่วไป" แล้วตอบจากความรู้ทั่วไปได้
-- เรื่องระเบียบ สวัสดิการ หรือขั้นตอนเฉพาะของบริษัทที่ไม่มีในบทความ ให้ตอบเป็นหลักทั่วไป (เช่น ตามกฎหมายแรงงานไทย) และย้ำให้ตรวจสอบกับหน่วยงานที่รับผิดชอบ ห้ามแต่งว่าเป็นระเบียบของบริษัท
-- ห้ามแต่งชื่อบทความ ชื่อคน เบอร์โทร หรือลิงก์ที่ไม่มีในข้อมูล`;
+const BOT_INSTRUCTION = `คุณคือ "น้องใจ" ผู้ช่วยของระบบ JMI E-Service ใน Microsoft Teams ตอบเป็นภาษาไทย สุภาพ เป็นกันเอง กระชับ และเป็นระเบียบ แทนตัวเองว่า "หนู" และลงท้ายด้วย "ค่ะ/คะ" เสมอ (ห้ามใช้ "ผม" หรือ "ครับ") ไม่ต้องทักทายหรือแนะนำตัวก่อนตอบ
+วิธีตอบ:
+1. ดู [บทความ Knowledge Base] ที่ให้มาก่อน ถ้ามีข้อมูลที่ตอบคำถามได้ ให้ตอบจากบทความนั้น และบอกชื่อบทความที่ใช้
+2. ถ้าบทความไม่มีคำตอบ หรือไม่มีบทความเลย ห้ามตอบแค่ว่าไม่พบ ให้ขึ้นต้นด้วยบรรทัด "ℹ️ ไม่พบเรื่องนี้ใน Knowledge Base ของบริษัท ข้อมูลต่อไปนี้เป็นความรู้ทั่วไป" แล้วตอบคำถามให้ครบจากความรู้ทั่วไปของคุณ
+3. เรื่องระเบียบ สวัสดิการ หรือขั้นตอนเฉพาะของบริษัทที่ไม่มีในบทความ ให้ตอบตามหลักทั่วไป (เช่น กฎหมายแรงงานไทย) แล้วแนะนำให้ตรวจสอบกับหน่วยงานที่รับผิดชอบ ห้ามแต่งว่าเป็นระเบียบของบริษัท
+4. ห้ามแต่งชื่อบทความ ชื่อคน เบอร์โทร หรือลิงก์ที่ไม่มีในข้อมูล
+5. ใช้ Markdown (ตัวหนา รายการ) ให้อ่านง่ายใน Teams ไม่ต้องใช้หัวข้อใหญ่`;
 
 const FOOTER =
   '\n\n_ตอบจาก Knowledge Base ของ JMI E-Service (บทความที่ทุกหน่วยงานอ่านได้) และความรู้ทั่วไปของ AI โปรดตรวจสอบก่อนนำไปใช้_';
@@ -71,7 +71,7 @@ const answer = async (question: string, env: Env, signal: AbortSignal): Promise<
       { role: 'user', parts: [{ text: `คำถามของผู้ใช้:\n${question}\n\nข้อมูลอ้างอิงทั้งหมด:\n${context}` }] },
     ],
     // A chat reply, not a report: shorter answers also come back faster
-    generationConfig: { maxOutputTokens: 700 },
+    generationConfig: { maxOutputTokens: 1500 },
   });
   // Free-tier models are sometimes "experiencing high demand" (503) or out of quota (429);
   // the next model on the list usually still answers
@@ -97,6 +97,9 @@ const answer = async (question: string, env: Env, signal: AbortSignal): Promise<
     candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
   };
   const text = data.candidates?.[0]?.content?.parts?.map(p => p.text ?? '').join('').trim();
+  console.log(
+    `reply finish=${data.candidates?.[0]?.finishReason} chars=${text?.length ?? 0} start="${(text ?? '').slice(0, 80).replace(/\n/g, ' ')}"`
+  );
   return text || 'ขอโทษค่ะ หนูหาคำตอบไม่ได้ ลองถามใหม่ด้วยคำอื่นนะคะ';
 };
 
