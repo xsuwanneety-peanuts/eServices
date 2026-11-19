@@ -17,10 +17,14 @@ import { postToWorkflow, questionFromTeamsText, teamsReply, verifyTeamsSignature
 /** Teams drops a webhook reply that takes longer than 5 seconds. */
 const TEAMS_BUDGET_MS = 4500;
 /** A late answer, posted through the Workflow, may take this long (Workers allow 30 s). */
-const LATE_BUDGET_MS = 25_000;
+const LATE_BUDGET_MS = 27_000;
 
-/** Tried in order when the main model is busy (503/500) or out of free quota (429), or no longer exists (404). */
-const FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+/**
+ * Tried in order when the main model is busy (503/500), out of free quota (429), gone (404) or
+ * silent. Google's "-latest" aliases always point at a current model; fixed names such as
+ * gemini-2.5-flash are closed to new API keys.
+ */
+const FALLBACK_MODELS = ['gemini-flash-lite-latest', 'gemini-flash-latest'];
 const RETRY_STATUSES = new Set([404, 429, 500, 503]);
 /** Longest wait for one model before asking the next (answers normally take 1–3 s). */
 const MODEL_TIMEOUT_MS = 8000;
@@ -77,7 +81,9 @@ const answer = async (question: string, env: Env, signal: AbortSignal): Promise<
   });
   // Free-tier models are sometimes "experiencing high demand" (503) or out of quota (429);
   // the next model on the list usually still answers
-  const models = [...new Set([env.GEMINI_MODEL || ASSISTANT_MODEL, ...FALLBACK_MODELS])];
+  const main = env.GEMINI_MODEL || ASSISTANT_MODEL;
+  // The main model is asked once more at the end: a hang is usually brief
+  const models = [...new Set([main, ...FALLBACK_MODELS]), main];
   let res: Response | undefined;
   for (const model of models) {
     const askedAt = Date.now();
