@@ -30,9 +30,22 @@ interface WorkerContext {
 
 const HELP =
   'สวัสดีค่ะ หนูคือผู้ช่วย JMI E-Service 😊 พิมพ์ @ชื่อบอท ตามด้วยคำถามได้เลย เช่น "ลาป่วยต้องแนบใบรับรองแพทย์ไหม" ' +
-  'หนูจะตอบจากบทความใน Knowledge Base ที่เปิดให้ทุกหน่วยงานอ่านค่ะ';
+  'หนูจะตอบจากบทความใน Knowledge Base ที่เปิดให้ทุกหน่วยงานอ่านก่อน ถ้าไม่มีจะตอบจากความรู้ทั่วไปและบอกให้รู้ค่ะ';
 
-const FOOTER = '\n\n_ตอบจาก Knowledge Base ของ JMI E-Service (บทความที่ทุกหน่วยงานอ่านได้) โปรดตรวจสอบก่อนนำไปใช้_';
+/**
+ * The Assistance rules answer only from the Knowledge Base. In Teams people also ask everyday
+ * questions, so the bot may fall back on general knowledge, labelled as such.
+ */
+const BOT_INSTRUCTION = `${SYSTEM_INSTRUCTION}
+
+ข้อยกเว้นสำหรับบอทใน Microsoft Teams (ใช้แทนกฎข้อ 2 และ 3):
+- ถ้าบทความ Knowledge Base ตอบได้ ให้ตอบจากบทความก่อนเสมอ และบอกชื่อบทความ
+- ถ้าไม่พบในบทความ ให้ขึ้นต้นด้วยบรรทัดนี้ก่อน: "ℹ️ ไม่พบเรื่องนี้ใน Knowledge Base ของบริษัท ข้อมูลต่อไปนี้เป็นความรู้ทั่วไป" แล้วตอบจากความรู้ทั่วไปได้
+- เรื่องระเบียบ สวัสดิการ หรือขั้นตอนเฉพาะของบริษัทที่ไม่มีในบทความ ให้ตอบเป็นหลักทั่วไป (เช่น ตามกฎหมายแรงงานไทย) และย้ำให้ตรวจสอบกับหน่วยงานที่รับผิดชอบ ห้ามแต่งว่าเป็นระเบียบของบริษัท
+- ห้ามแต่งชื่อบทความ ชื่อคน เบอร์โทร หรือลิงก์ที่ไม่มีในข้อมูล`;
+
+const FOOTER =
+  '\n\n_ตอบจาก Knowledge Base ของ JMI E-Service (บทความที่ทุกหน่วยงานอ่านได้) และความรู้ทั่วไปของ AI โปรดตรวจสอบก่อนนำไปใช้_';
 
 /** Ask Gemini with the shared Assistance instructions and the open Knowledge Base. */
 const answer = async (question: string, env: Env, signal: AbortSignal): Promise<string> => {
@@ -53,7 +66,7 @@ const answer = async (question: string, env: Env, signal: AbortSignal): Promise<
   // Logged before Gemini is called, so a timeout still shows how far it got
   console.log(`step articles ready in ${readMs}ms (${picked.length} picked, ${context.length} chars)`);
   const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+    systemInstruction: { parts: [{ text: BOT_INSTRUCTION }] },
     contents: [
       { role: 'user', parts: [{ text: `คำถามของผู้ใช้:\n${question}\n\nข้อมูลอ้างอิงทั้งหมด:\n${context}` }] },
     ],
