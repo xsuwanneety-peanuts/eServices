@@ -19,6 +19,10 @@ const TEAMS_BUDGET_MS = 4500;
 /** A late answer, posted through the Workflow, may take this long (Workers allow 30 s). */
 const LATE_BUDGET_MS = 25_000;
 
+/** Tried in order when the main model is busy (503/500) or out of free quota (429), or no longer exists (404). */
+const FALLBACK_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
+const RETRY_STATUSES = new Set([404, 429, 500, 503]);
+
 /** The part of Cloudflare's execution context used here: work that continues after replying. */
 interface WorkerContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -48,24 +52,33 @@ const answer = async (question: string, env: Env, signal: AbortSignal): Promise<
   const readMs = Date.now() - started;
   // Logged before Gemini is called, so a timeout still shows how far it got
   console.log(`step articles ready in ${readMs}ms (${picked.length} picked, ${context.length} chars)`);
-  const model = env.GEMINI_MODEL || ASSISTANT_MODEL;
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-      contents: [
-        { role: 'user', parts: [{ text: `คำถามของผู้ใช้:\n${question}\n\nข้อมูลอ้างอิงทั้งหมด:\n${context}` }] },
-      ],
-      // A chat reply, not a report: shorter answers also come back faster
-      generationConfig: { maxOutputTokens: 700 },
-    }),
-    signal,
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+    contents: [
+      { role: 'user', parts: [{ text: `คำถามของผู้ใช้:\n${question}\n\nข้อมูลอ้างอิงทั้งหมด:\n${context}` }] },
+    ],
+    // A chat reply, not a report: shorter answers also come back faster
+    generationConfig: { maxOutputTokens: 700 },
   });
-  console.log(
-    `timing read=${readMs}ms gemini=${Date.now() - started - readMs}ms articles=${picked.map(a => a.id).join(',')} chars=${context.length}`
-  );
+  // Free-tier models are sometimes "experiencing high demand" (503) or out of quota (429);
+  // the next model on the list usually still answers
+  const models = [...new Set([env.GEMINI_MODEL || ASSISTANT_MODEL, ...FALLBACK_MODELS])];
+  let res: Response | undefined;
+  for (const model of models) {
+    const askedAt = Date.now();
+    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+      body,
+      signal,
+    });
+    console.log(`timing model=${model} status=${res.status} gemini=${Date.now() - askedAt}ms read=${readMs}ms`);
+    if (res.ok || !RETRY_STATUSES.has(res.status)) break;
+    console.warn(`${model} unavailable (${res.status}): ${(await res.text()).slice(0, 120)}`);
+  }
+  if (!res) throw new Error('No Gemini model to ask');
   if (res.status === 429) return 'ตอนนี้มีคนถามเยอะเกินโควตาฟรีของ AI ลองถามใหม่อีกสักครู่นะคะ';
+  if (RETRY_STATUSES.has(res.status)) return 'ตอนนี้ระบบ AI ของ Google มีคนใช้งานหนาแน่น ลองถามใหม่อีกสักครู่นะคะ';
   if (!res.ok) throw new Error(`Gemini error ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
