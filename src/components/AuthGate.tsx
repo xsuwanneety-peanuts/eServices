@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, User } from 'firebase/auth';
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithEmailAndPassword,
+  signOut,
+  User,
+} from 'firebase/auth';
 import { ADMIN_EMAILS, auth } from '../lib/firebase';
 import { sendPasswordLink } from '../utils/loginAccounts';
 import { ResetPasswordScreen, passwordResetCodeFromUrl } from './ResetPasswordScreen';
@@ -77,8 +85,29 @@ const signInErrorMessage = (error: unknown): string => {
   return 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่';
 };
 
+// The email of the last remembered sign-in, filled in next time. Only the email: the
+// password is left to the browser's own password manager, which can offer to save it.
+const REMEMBERED_EMAIL_KEY = 'signin:rememberedEmail';
+const readRememberedEmail = () => {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+const saveRememberedEmail = (email: string) => {
+  try {
+    if (email) localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+    else localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+  } catch {
+    // Storage blocked (private window): nothing to remember
+  }
+};
+
 const SignInScreen: React.FC<{ startWithReset?: boolean }> = ({ startWithReset = false }) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(readRememberedEmail);
+  // On by default: signing in once per computer, as before
+  const [remember, setRemember] = useState(true);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -117,6 +146,10 @@ const SignInScreen: React.FC<{ startWithReset?: boolean }> = ({ startWithReset =
     }
     setBusy(true);
     try {
+      // Remembered: stays signed in on this browser until signing out. Not remembered: only
+      // until the tab or browser is closed (for shared computers)
+      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+      saveRememberedEmail(remember ? email.trim() : '');
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err) {
       setError(signInErrorMessage(err));
@@ -212,6 +245,7 @@ const SignInScreen: React.FC<{ startWithReset?: boolean }> = ({ startWithReset =
             </label>
             <input
               id="signin-email"
+              name="email"
               type="email"
               autoComplete="username"
               value={email}
@@ -235,6 +269,7 @@ const SignInScreen: React.FC<{ startWithReset?: boolean }> = ({ startWithReset =
             </div>
             <input
               id="signin-password"
+              name="password"
               type="password"
               autoComplete="current-password"
               value={password}
@@ -242,6 +277,21 @@ const SignInScreen: React.FC<{ startWithReset?: boolean }> = ({ startWithReset =
               className={inputClass}
             />
           </div>
+
+          <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={e => setRemember(e.target.checked)}
+              className="mt-0.5 w-3.5 h-3.5 accent-red-600 cursor-pointer"
+            />
+            <span>
+              <span className="font-semibold">จดจำการเข้าสู่ระบบในเครื่องนี้</span>
+              <span className="block text-[11px] text-slate-400">
+                ไม่ต้องล็อกอินใหม่ทุกครั้ง และจำอีเมลไว้ · ไม่ควรเลือกบนเครื่องที่ใช้ร่วมกับคนอื่น
+              </span>
+            </span>
+          </label>
 
           {error && (
             <p role="alert" className="flex items-center gap-1.5 text-xs font-semibold text-rose-700">
@@ -260,7 +310,7 @@ const SignInScreen: React.FC<{ startWithReset?: boolean }> = ({ startWithReset =
           </button>
 
           <p className="text-[11px] text-slate-400 text-center">
-            ขอบัญชีเข้าใช้งานได้จากฝ่าย Information Technology — เข้าครั้งเดียวต่อเครื่อง
+            ขอบัญชีเข้าใช้งานได้จากฝ่าย Information Technology
           </p>
         </form>
         )}
