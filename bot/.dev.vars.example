@@ -1,0 +1,9 @@
+# Copy to .dev.vars (git-ignored) to run "npm run dev" locally. Never commit real values.
+GEMINI_API_KEY=
+TEAMS_HMAC_SECRET=
+BOT_EMAIL=
+BOT_PASSWORD=
+# Optional: Teams Workflow URL for answers slower than 5 seconds
+TEAMS_WORKFLOW_URL=
+# Optional: enables POST /ask
+API_TOKEN=

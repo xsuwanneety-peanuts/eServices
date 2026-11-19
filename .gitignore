@@ -8,3 +8,7 @@ coverage/
 # Firebase web config is not secret; these two are committed so CI can build each environment
 !.env.development
 !.env.production
+# Teams bot (Cloudflare Worker): local secrets and build output
+bot/.dev.vars
+bot/.wrangler/
+bot/node_modules/
