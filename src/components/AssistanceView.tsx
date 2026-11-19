@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import { useApp } from '../context/AppContext';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { askConfirm } from './ConfirmDialog';
+import assistantAvatar from '../assets/assistant-avatar.png';
 import {
   AssistantAnswer,
   AssistantSource,
@@ -27,7 +28,6 @@ import {
   Plus,
   RotateCcw,
   Send,
-  Sparkles,
   Trash2,
   X,
   XCircle,
@@ -149,9 +149,7 @@ export const AssistanceView: React.FC = () => {
       {/* Page header */}
       <div className="pb-3 border-b border-slate-200 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-red-700 text-white flex items-center justify-center shadow-xs shrink-0">
-            <Sparkles className="w-4 h-4" />
-          </div>
+          <img src={assistantAvatar} alt="" className="w-10 h-10 rounded-full shadow-xs shrink-0" />
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Assistance</h1>
             <p className="text-xs text-slate-500 truncate">ถาม AI จาก Knowledge Base และเอกสารของคุณ</p>
@@ -237,8 +235,9 @@ export const AssistanceView: React.FC = () => {
             )}
             {busy && (
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="w-7 h-7 rounded-full bg-red-50 border border-red-100 flex items-center justify-center">
-                  <Loader2 className="w-3.5 h-3.5 text-red-600 animate-spin" />
+                <span className="relative shrink-0">
+                  <img src={assistantAvatar} alt="" className="w-8 h-8 rounded-full" />
+                  <Loader2 className="absolute -right-1 -bottom-1 w-3.5 h-3.5 p-0.5 rounded-full bg-white text-red-600 animate-spin" />
                 </span>
                 กำลังค้นคำตอบจากแหล่งความรู้...
               </div>
@@ -596,9 +595,7 @@ const Welcome: React.FC<{
   onAsk: (q: string) => void;
 }> = ({ hasSources, suggestions, loadingSuggestions, onSuggest, onAsk }) => (
   <div className="h-full flex flex-col items-center justify-center text-center gap-3 py-6">
-    <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center">
-      <Sparkles className="w-7 h-7 text-red-600" />
-    </div>
+    <img src={assistantAvatar} alt="ผู้ช่วย JMI E-Service" className="w-24 h-24 rounded-full" />
     <div>
       <p className="text-base font-bold text-slate-900">สวัสดี มีอะไรให้ช่วยค้นหาไหม</p>
       <p className="text-xs text-slate-500 mt-1 max-w-md">
@@ -645,9 +642,7 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
   }
   return (
     <div className="flex gap-2.5">
-      <span className="w-7 h-7 rounded-full bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
-        <Sparkles className="w-3.5 h-3.5 text-red-600" />
-      </span>
+      <img src={assistantAvatar} alt="" className="w-8 h-8 rounded-full shrink-0" />
       <div className="min-w-0 max-w-[90%] space-y-2">
         {message.error ? (
           <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md bg-rose-50 border border-rose-200 text-sm text-rose-800 flex items-start gap-1.5">

@@ -36,7 +36,7 @@ if (RECAPTCHA_SITE_KEY) {
   if (env.DEV) {
     // On localhost reCAPTCHA cannot vouch for the page, so App Check uses a debug token: one
     // made under App Check > Apps > Manage debug tokens of the development project and kept in
-    // .env.local (git-ignored) as VITE_APPCHECK_DEBUG_TOKEN. Without it, the SDK prints a new
+    // .env.development.local (git-ignored, read by `npm run dev` only) as VITE_APPCHECK_DEBUG_TOKEN. Without it, the SDK prints a new
     // token in the browser console that has to be added there instead.
     (self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string | boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN =
       env.VITE_APPCHECK_DEBUG_TOKEN || true;
