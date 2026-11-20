@@ -1,6 +1,5 @@
 import { DepartmentId, DocumentRequest, MemoData, MenuItemPermission, WorkflowDefinition } from '../types';
 import { CORPORATE_DEPARTMENTS } from '../data/mockData';
-import { FORM_CODE_PREFIX } from './forms';
 
 // The Memorandum (บันทึกภายใน) form of Administrative & Procurement. It is a built-in form
 // with a fixed layout, so it is added to each project's data once instead of being made in
@@ -129,17 +128,3 @@ export const shortThaiDate = (timestamp?: string): string => {
   return match ? `${match[1]}/${match[2]}/${pad2((Number(match[3]) + 543) % 100)}` : '';
 };
 
-/**
- * Next memo number for a department in the current Buddhist year, e.g. IT015/69: the
- * department's code, a three-digit running number and the two-digit year.
- */
-export const nextMemoNo = (deptId: DepartmentId, requests: DocumentRequest[], now = new Date()): string => {
-  const prefix = FORM_CODE_PREFIX[deptId];
-  const year = pad2((now.getFullYear() + 543) % 100);
-  const pattern = new RegExp(`^${prefix}(\\d+)/${year}$`);
-  const last = requests.reduce((max, r) => {
-    const n = Number(r.memo?.docNo.match(pattern)?.[1] ?? 0);
-    return n > max ? n : max;
-  }, 0);
-  return `${prefix}${String(last + 1).padStart(3, '0')}/${year}`;
-};
