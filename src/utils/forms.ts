@@ -64,6 +64,7 @@ export const DEFAULT_RUNNING_DIGITS = 4;
  *   Memorandum      MEMO-2026-00001
  *   IT & Request    ITR-2026-00001
  *   P&O JRF         JRF-2026-00001 (its saved prefix)
+ *   Quotation       QUO-2026-00001
  *   Ticket Request  TICKET-2026-00001 (a form-builder form saved with the prefix "Ticket")
  * Earlier numbers are counted without regard to case, so Ticket-2026-0001 is followed by
  * TICKET-2026-00002. Every other form uses its own prefix and 4 digits.
@@ -74,6 +75,7 @@ export const requestNumbering = (
   if (form?.template === 'memo') return { prefix: 'MEMO', digits: 5 };
   if (form?.template === 'it_request') return { prefix: 'ITR', digits: 5 };
   if (form?.template === 'po_request') return { prefix: form.docPrefix ?? '', digits: 5 };
+  if (form?.template === 'quotation') return { prefix: 'QUO', digits: 5 };
   if (form?.docPrefix?.toLowerCase() === 'ticket') return { prefix: 'TICKET', digits: 5 };
   return { prefix: form?.docPrefix ?? '', digits: DEFAULT_RUNNING_DIGITS };
 };

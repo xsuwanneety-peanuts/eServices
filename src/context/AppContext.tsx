@@ -20,6 +20,7 @@ import {
   MemoData,
   ItRequestData,
   PoRequestData,
+  QuotationData,
   RequestDraft,
 } from '../types';
 import {
@@ -46,6 +47,15 @@ import {
   poAnswers,
   poDetails,
 } from '../utils/poRequest';
+import {
+  QUOTATION_FORM,
+  QUOTATION_SEED_MARKER,
+  QUOTATION_WORKFLOW,
+  longThaiDate,
+  quotationAnswers,
+  quotationDetails,
+  quotationTitle,
+} from '../utils/quotation';
 import {
   IT_REQUEST_FORM,
   IT_REQUEST_SEED_MARKER,
@@ -522,6 +532,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .then(() =>
         seedCollectionsOnce({ menuPermissions: [PO_FORM], workflows: [PO_WORKFLOW] }, PO_SEED_MARKER, 1200)
       )
+      .then(() =>
+        seedCollectionsOnce(
+          { menuPermissions: [QUOTATION_FORM], workflows: [QUOTATION_WORKFLOW] },
+          QUOTATION_SEED_MARKER,
+          1300
+        )
+      )
       .catch(handleWriteError);
   }, [isAdminLogin]);
 
@@ -988,6 +1005,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       refNo: requestCode,
       requestDate: thaiDate(now),
     };
+    // A quotation takes the request's number and today's date, written out in full
+    const quotation: QuotationData | undefined = newReq.quotation && {
+      ...newReq.quotation,
+      docNo: requestCode,
+      date: longThaiDate(now),
+    };
 
     // Steps the requester added run after the form's own, each by the employee they chose
     const stepConfigs: ApprovalStepConfig[] = [
@@ -1037,7 +1060,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const doc: DocumentRequest = {
       id: `req-${Date.now()}`,
       code: requestCode,
-      title: itRequest ? itRequestTitle(itRequest) : newReq.title || 'คำร้องขอใช้บริการทั่วไป',
+      title: itRequest
+        ? itRequestTitle(itRequest)
+        : quotation
+          ? quotationTitle(quotation)
+          : newReq.title || 'คำร้องขอใช้บริการทั่วไป',
       category: newReq.category || matchedWf.formTitle,
       departmentId: newReq.departmentId || 'it',
       itilCategory: newReq.itilCategory || 'service_request',
@@ -1060,7 +1087,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? itRequestDetails(itRequest)
           : poRequest
             ? poDetails(poRequest)
-            : newReq.details || '',
+            : quotation
+              ? quotationDetails(quotation)
+              : newReq.details || '',
       attachments: newReq.attachments || [],
       formId: newReq.formId,
       answers: memo
@@ -1069,10 +1098,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? itRequestAnswers(itRequest)
           : poRequest
             ? poAnswers(poRequest)
-            : newReq.answers,
+            : quotation
+              ? quotationAnswers(quotation)
+              : newReq.answers,
       memo,
       itRequest,
       poRequest,
+      quotation,
       workflowId: matchedWf.id,
       currentStepIndex: 1, // Next approver
       steps: auditSteps,
@@ -1337,19 +1369,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const itRequest = r.itRequest && { ...r.itRequest, symptom: input.details };
         // On a P&O JRF it edits the description of the request
         const poRequest = r.poRequest && { ...r.poRequest, description: input.details };
+        // On a quotation it edits the cover (ความคุ้มครอง)
+        const quotation = r.quotation && { ...r.quotation, coverage: input.details };
         return {
           ...r,
-          title: itRequest ? itRequestTitle(itRequest) : input.title,
+          title: itRequest ? itRequestTitle(itRequest) : quotation ? quotationTitle(quotation) : input.title,
           memo,
           itRequest,
           poRequest,
+          quotation,
           details: memo
             ? memoDetails(memo)
             : itRequest
               ? itRequestDetails(itRequest)
               : poRequest
                 ? poDetails(poRequest)
-                : input.details,
+                : quotation
+                  ? quotationDetails(quotation)
+                  : input.details,
           // Answers of a built form are shown from `details`; drop the old copy once it is edited
           answers: memo
             ? memoAnswers(memo)
@@ -1357,7 +1394,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               ? itRequestAnswers(itRequest)
               : poRequest
                 ? poAnswers(poRequest)
-                : detailsChanged
+                : quotation
+                  ? quotationAnswers(quotation)
+                  : detailsChanged
                   ? undefined
                   : r.answers,
           status: 'in_review' as const,

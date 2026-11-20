@@ -4,6 +4,7 @@ import { DocumentRequest } from '../types';
 import { MemoDocument } from './MemoDocument';
 import { ItRequestDocument } from './ItRequestDocument';
 import { PoRequestDocument } from './PoRequestDocument';
+import { QuotationDocument } from './QuotationDocument';
 import companyLogo from '../assets/company-logo.png';
 import {
   X,
@@ -192,13 +193,16 @@ export const PrintSlipModal: React.FC = () => {
   const isMemo = !!activeRequest.memo;
   const isItRequest = !!activeRequest.itRequest;
   const isPoRequest = !!activeRequest.poRequest;
+  const isQuotation = !!activeRequest.quotation;
   const Paper = isMemo
     ? MemoDocument
     : isItRequest
       ? ItRequestDocument
       : isPoRequest
         ? PoRequestDocument
-        : SlipDocument;
+        : isQuotation
+          ? QuotationDocument
+          : SlipDocument;
   const fileName = isMemo
     ? activeRequest.memo!.docNo.startsWith('MEMO-')
       ? `${activeRequest.memo!.docNo}.pdf`
@@ -235,7 +239,9 @@ export const PrintSlipModal: React.FC = () => {
                   ? 'IT & Request Form'
                   : isPoRequest
                     ? 'P&O Business Requirement (JRF)'
-                    : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
+                    : isQuotation
+                      ? 'ข้อเสนอการประกันภัย (Quotation)'
+                      : 'เอกสารคำร้องอิเล็กทรอนิกส์ (Official e-Slip)'}
             </h3>
           </div>
           <div className="flex items-center space-x-2">

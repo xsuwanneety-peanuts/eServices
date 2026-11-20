@@ -80,7 +80,9 @@ export const RequestDetailModal: React.FC = () => {
         ? activeRequest.itRequest.symptom
         : activeRequest.poRequest
           ? activeRequest.poRequest.description
-          : activeRequest.details
+          : activeRequest.quotation
+            ? activeRequest.quotation.coverage
+            : activeRequest.details
     );
     if (activeRequest.memo) {
       const { to, background, summary } = activeRequest.memo;
@@ -503,7 +505,9 @@ export const RequestDetailModal: React.FC = () => {
                         ? 'สาเหตุ / อาการ'
                         : activeRequest.poRequest
                           ? 'Description Of Request'
-                          : 'รายละเอียด'}
+                          : activeRequest.quotation
+                            ? 'ความคุ้มครอง (บรรทัดละ 1 ข้อ)'
+                            : 'รายละเอียด'}
                     </label>
                     <textarea
                       id="rs-details"
