@@ -372,7 +372,7 @@ export const AccessControlView: React.FC = () => {
                   {membersOf(dept.id).length > 0 ? (
                     <ul className="mt-2 divide-y divide-slate-100">
                       {membersOf(dept.id).map(person => {
-                        const isExecutive = person.role === 'director' || person.role === 'admin';
+                        const isExecutive = ['director', 'system_admin', 'admin'].includes(person.role);
                         return (
                           <li key={person.id} className="py-2 flex items-center justify-between gap-3 text-xs">
                             <span className="min-w-0">

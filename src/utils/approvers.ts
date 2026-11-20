@@ -9,14 +9,15 @@ export const APPROVER_TYPE_LABELS: Record<StepApproverType, string> = {
   department: 'ทุกคนในหน่วยงานที่ระบุ',
 };
 
-// "ผู้บริหาร" sees every request and may approve any step. It is not the same as being a
-// system admin (opening system settings), which comes from the sign-in account (ADMIN_EMAILS).
+// "ผู้บริหาร" sees every request and may approve any step. "ผู้ดูแลระบบ" can do the same and
+// also opens the system-management menus; so can the accounts in ADMIN_EMAILS, whatever their role.
 // The old 'admin' role means the same as 'director' and is no longer offered.
 export const ROLE_LABELS: Record<UserPersona['role'], string> = {
   employee: 'พนักงาน',
   approver: 'ผู้อนุมัติ',
   manager: 'ผู้จัดการ',
   director: 'ผู้บริหาร',
+  system_admin: 'ผู้ดูแลระบบ',
   admin: 'ผู้บริหาร',
 };
 

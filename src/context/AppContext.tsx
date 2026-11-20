@@ -142,7 +142,8 @@ const INITIAL_NOTIFICATIONS: ActionEmailNotification[] = INITIAL_REQUESTS_RESOLV
   ];
 });
 
-const isAdminRole = (user: UserPersona) => user.role === 'admin' || user.role === 'director';
+const isAdminRole = (user: UserPersona) =>
+  user.role === 'admin' || user.role === 'director' || user.role === 'system_admin';
 
 // Who may open each screen. System-management screens need an individual admin sign-in;
 // the shared staff account cannot open them (and firestore.rules blocks its writes there).
@@ -325,6 +326,8 @@ interface AppContextType {
   // Role-based visibility
   /** Directors and admins: see everything and manage the system. */
   isSystemAdmin: boolean;
+  /** Opens the system-management menus: an ADMIN_EMAILS account or the ผู้ดูแลระบบ role. */
+  isAdminLogin: boolean;
   /** Whether the current user may open the given screen. */
   canAccessTab: (tab: string) => boolean;
   /** Anyone who takes part in approving requests (not a plain requester). */
@@ -354,7 +357,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAdminLogin } = useAuth();
+  // Admins are the accounts in ADMIN_EMAILS, plus employees given the ผู้ดูแลระบบ role (below)
+  const { user, isAdminLogin: isBuiltInAdmin } = useAuth();
   const signedInEmail = (user.email ?? '').toLowerCase();
 
   // Write failures (e.g. the staff account editing admin-only data) are reported, and the
@@ -376,14 +380,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const directoryEntry = employees.find(e => e.email.toLowerCase() === signedInEmail);
   // A switched-off employee is kept in the directory but treated as not being in it (admins
   // are never locked out this way)
-  const isDisabledAccount = !!directoryEntry?.disabled && !isAdminLogin;
+  const isDisabledAccount = !!directoryEntry?.disabled && !isBuiltInAdmin;
   const linkedEmployee = isDisabledAccount ? undefined : directoryEntry;
   const isLinkedAccount = !!linkedEmployee;
+  // Firestore rules give the role the same rights, from userDepartments (see userDepartments.ts)
+  const isAdminLogin = isBuiltInAdmin || linkedEmployee?.role === 'system_admin';
   // An admin account that is not in the directory yet still needs to get in to add people,
   // so it gets a temporary admin profile; other unlinked accounts are stopped in App
   const currentUser: UserPersona =
     linkedEmployee ??
-    (isAdminLogin
+    (isBuiltInAdmin
       ? {
           id: `account:${user.uid}`,
           name: signedInEmail,
@@ -532,7 +538,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Keep the copy of each employee's department that Firestore rules read (see userDepartments.ts)
   const departmentsKey = employees
-    .map(e => `${e.email.toLowerCase()}:${e.departmentId}:${e.disabled ? 1 : 0}`)
+    .map(e => `${e.email.toLowerCase()}:${e.departmentId}:${e.disabled ? 1 : 0}:${e.role}`)
     .sort()
     .join('|');
   useEffect(() => {
@@ -666,7 +672,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Check if current user has permission for a specific menu code
   const isMenuPermittedForUser = (menuCode: string): boolean => {
-    if (currentUser.role === 'admin' || currentUser.role === 'director') return true;
+    if (isAdminRole(currentUser)) return true;
     const perm = menuPermissions.find(p => p.menuCode === menuCode);
     if (!perm) return true;
     return perm.allowedDepartments[currentUser.departmentId] ?? false;
@@ -1572,6 +1578,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast,
         showToast,
         isSystemAdmin,
+        isAdminLogin,
         canAccessTab: (tab: string) => canUserAccessTab(isAdminLogin, tab),
         canApprove,
         canActOnRequest,

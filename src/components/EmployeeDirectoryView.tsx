@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 
 type Role = UserPersona['role'];
-const ROLES: Role[] = ['employee', 'approver', 'manager', 'director'];
+const ROLES: Role[] = ['employee', 'approver', 'manager', 'director', 'system_admin'];
 const isAdminAccount = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
 
 const ROLE_BADGE: Record<Role, string> = {
@@ -30,6 +30,7 @@ const ROLE_BADGE: Record<Role, string> = {
   approver: 'bg-blue-50 text-blue-700',
   manager: 'bg-amber-50 text-amber-800',
   director: 'bg-red-50 text-red-700',
+  system_admin: 'bg-slate-800 text-white',
   admin: 'bg-red-50 text-red-700',
 };
 
@@ -286,7 +287,7 @@ export const EmployeeDirectoryView: React.FC = () => {
                       >
                         {ROLE_LABELS[employee.role]}
                       </span>
-                      {isAdminAccount(employee.email) && (
+                      {isAdminAccount(employee.email) && employee.role !== 'system_admin' && (
                         <span
                           title="บัญชีนี้เข้าเมนูการจัดการระบบได้"
                           className="inline-block mt-1 ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-white"
@@ -374,7 +375,7 @@ export const EmployeeDirectoryView: React.FC = () => {
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${ROLE_BADGE[employee.role]}`}>
                         {ROLE_LABELS[employee.role]}
                       </span>
-                      {isAdminAccount(employee.email) && (
+                      {isAdminAccount(employee.email) && employee.role !== 'system_admin' && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-white">
                           ผู้ดูแลระบบ
                         </span>
@@ -632,8 +633,8 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
           {/* The department decides which forms the employee can use (set on the access page) */}
           <p className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600">
             <span className="font-semibold text-slate-700">แบบฟอร์มที่ใช้ได้ตามสิทธิ์ของหน่วยงานนี้: </span>
-            {role === 'director'
-              ? 'ทุกแบบฟอร์ม (ผู้บริหาร)'
+            {role === 'director' || role === 'system_admin'
+              ? `ทุกแบบฟอร์ม (${ROLE_LABELS[role]})`
               : allowedForms.length > 0
                 ? allowedForms.map(f => f.menuName).join(', ')
                 : 'ยังไม่มี — ตั้งได้ที่หน้าสิทธิ์เข้าถึง'}
@@ -650,8 +651,8 @@ const EmployeeFormModal: React.FC<{ employee: UserPersona | null; onClose: () =>
               ))}
             </select>
             <p className="mt-1 text-[11px] text-slate-400">
-              ผู้บริหารเห็นคำร้องทั้งหมดและอนุมัติแทนได้ทุกขั้นตอน ส่วนสิทธิ์เข้าเมนูการจัดการระบบ (ผู้ดูแลระบบ)
-              กำหนดจากบัญชีเข้าสู่ระบบ ไม่ได้มาจากบทบาทนี้
+              ผู้บริหารเห็นคำร้องทั้งหมดและอนุมัติแทนได้ทุกขั้นตอน ผู้ดูแลระบบทำได้เหมือนผู้บริหาร
+              และเข้าเมนูการจัดการระบบได้ด้วย (แก้พนักงาน สิทธิ์เข้าถึง Flow อนุมัติ)
             </p>
           </div>
           <div>

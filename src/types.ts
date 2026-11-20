@@ -40,7 +40,11 @@ export interface UserPersona {
   departmentId: DepartmentId;
   departmentName: string;
   position: string;
-  role: 'employee' | 'approver' | 'manager' | 'director' | 'admin';
+  /**
+   * 'system_admin' (ผู้ดูแลระบบ) has everything 'director' has, plus the system-management menus
+   * and admin rights in the Firestore rules. 'admin' is a retired name for 'director'.
+   */
+  role: 'employee' | 'approver' | 'manager' | 'director' | 'system_admin' | 'admin';
   avatar: string;
   /** Employee this person reports to (their line manager). Unset for the top of a reporting line. */
   reportsToId?: string;
