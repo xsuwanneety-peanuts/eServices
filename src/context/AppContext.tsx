@@ -58,6 +58,7 @@ import {
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { deleteKbFiles, linkKbFilesToArticlesOnce, uploadKbFile } from '../utils/kbFiles';
 import { syncUserDepartments } from '../utils/userDepartments';
+import { renumberRequestsOnce } from '../utils/renumber';
 import {
   CORPORATE_DEPARTMENTS,
   USER_PERSONAS,
@@ -574,6 +575,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map(f => (f.id === PO_FORM_ID && f.docPrefix === PO_OLD_DOC_PREFIX ? { ...f, docPrefix: PO_DOC_PREFIX } : f))
     );
   }, [isAdminLogin, permissionsLoaded, poFormHasOldPrefix]);
+
+  // Requests made before their form had a fixed number (MEMO-, ITR-, JRF-, TICKET-) are
+  // renumbered once, by an admin's sign-in (see renumber.ts)
+  const renumberStarted = useRef(false);
+  useEffect(() => {
+    if (!isAdminLogin || !requestsLoaded || !notificationsLoaded || !permissionsLoaded || renumberStarted.current) return;
+    renumberStarted.current = true;
+    renumberRequestsOnce(requests, emailNotifications, menuPermissions)
+      .then(plan => plan.length && console.info('Requests renumbered:', plan))
+      .catch(error => console.warn('Requests not renumbered:', error));
+  }, [isAdminLogin, requestsLoaded, notificationsLoaded, permissionsLoaded]);
 
   // A memo form saved with the first wording ("CFO อนุมัติ", "CEO อนุมัติ") is reworded once
   const hasMemoFlow = workflows.some(w => w.id === MEMO_WORKFLOW_ID);
