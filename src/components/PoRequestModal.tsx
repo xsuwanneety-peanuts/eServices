@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
-import { nextRequestCode } from '../utils/forms';
+import { nextRequestCodeFor } from '../utils/forms';
 import { thaiDate } from '../utils/memo';
 import {
   PO_CLOSING_LINE,
   PO_DEFAULT_CLIENT,
   PO_DEFAULT_TO,
   poApproverTitle,
-  runningDigitsFor,
 } from '../utils/poRequest';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
 import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
@@ -44,11 +43,9 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
     onClose();
   };
 
-  const nextRef = nextRequestCode(
-    form.docPrefix ?? '',
-    requests.map(r => r.code),
-    new Date(),
-    runningDigitsFor(form)
+  const nextRef = nextRequestCodeFor(
+    form,
+    requests.map(r => r.code)
   );
 
   const handleSubmit = (event: React.FormEvent) => {

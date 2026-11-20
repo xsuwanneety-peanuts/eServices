@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
-import { isTitleField, nextRequestCode } from '../utils/forms';
+import { isTitleField, nextRequestCodeFor } from '../utils/forms';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
 import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
 import { AlertTriangle, FileText, Paperclip, Send, Trash2, X } from 'lucide-react';
@@ -176,8 +176,8 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
             <p className="text-xs text-slate-500">
               เลขที่เอกสารถัดไป{' '}
               <span className="font-mono text-slate-700">
-                {nextRequestCode(
-                  form.docPrefix ?? '',
+                {nextRequestCodeFor(
+                  form,
                   requests.map(r => r.code)
                 )}
               </span>

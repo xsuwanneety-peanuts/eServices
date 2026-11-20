@@ -46,7 +46,6 @@ import {
   PO_WORKFLOW,
   poAnswers,
   poDetails,
-  runningDigitsFor,
 } from '../utils/poRequest';
 import {
   IT_REQUEST_FORM,
@@ -68,7 +67,7 @@ import {
   initialsAvatar,
 } from '../data/mockData';
 import { resolveStepApprover } from '../utils/approvers';
-import { AddedStep, isOfferedForm, nextRequestCode } from '../utils/forms';
+import { AddedStep, isOfferedForm, nextRequestCodeFor } from '../utils/forms';
 import { isArray, usePersistentState } from '../utils/persistentState';
 import { markOnce, seedCollectionsOnce, useFirestoreCollection } from '../utils/firestoreCollection';
 import { where } from 'firebase/firestore';
@@ -952,13 +951,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const matchedWf = workflows.find(w => w.id === (newReq.workflowId || 'wf-procure')) || workflows[0];
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    // Next number in this year's sequence, e.g. REQ-2026-0007; a form may count under its own prefix
+    // Next number in this year's sequence for the form, e.g. MEMO-2026-00007 (see requestNumbering)
     const requestForm = menuPermissions.find(f => f.id === newReq.formId);
-    const requestCode = nextRequestCode(
-      requestForm?.docPrefix ?? '',
+    const requestCode = nextRequestCodeFor(
+      requestForm,
       requests.map(r => r.code),
-      now,
-      runningDigitsFor(requestForm)
+      now
     );
     // A memo gets its date and running number here, at the moment it is sent
     const memo: MemoData | undefined = newReq.memo && {
@@ -1414,12 +1412,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Approvers are real employees from the directory, so a step belongs to whoever's email it carries
   const isMine = (email: string) => isSystemAdmin || (!!email && email === currentUser.email);
+  // Approving stamps the step with the approver's name, so only the person named on the step may
+  // do it; ผู้บริหาร see every request but cannot act for others. Only a system admin (ADMIN_EMAILS
+  // or the ผู้ดูแลระบบ role) may act in someone's place, and the step then records the admin.
+  const mayActFor = (email: string) => isAdminLogin || (!!email && email === currentUser.email);
 
   const canActOnRequest = (request: DocumentRequest): boolean => {
     if (request.status !== 'in_review' && request.status !== 'pending') return false;
     const step = request.steps[request.currentStepIndex];
     if (!step || step.status !== 'pending') return false;
-    if (isMine(step.approverEmail)) return true;
+    if (mayActFor(step.approverEmail)) return true;
     // A step open to a whole department belongs to any of its members
     return isLinkedAccount && !!step.approverDepartmentId && step.approverDepartmentId === currentUser.departmentId;
   };
@@ -1445,7 +1447,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const myRequests = requests.filter(r => r.requestorId === currentUser.id);
   const approvalQueue = requests.filter(canActOnRequest);
 
-  const myNotifications = emailNotifications.filter(notif => isMine(notif.recipientEmail));
+  // Approval alerts go to the person who can act on them (and admins, who may act for anyone)
+  const myNotifications = emailNotifications.filter(notif => mayActFor(notif.recipientEmail));
 
   // Latest progress on each of the current user's own requests
   const myStatusUpdates: RequestStatusUpdate[] = myRequests.flatMap((req): RequestStatusUpdate[] => {

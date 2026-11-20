@@ -10,6 +10,7 @@ import {
   isTitleField,
   isValidDocPrefix,
   newId,
+  requestNumbering,
 } from '../utils/forms';
 import { AlertTriangle, ArrowDown, ArrowUp, Plus, Trash2, X } from 'lucide-react';
 import { askConfirm } from './ConfirmDialog';
@@ -218,7 +219,14 @@ export const FormBuilderModal: React.FC<{
                 <span className="text-slate-500">
                   เลขที่จะออกเป็น{' '}
                   <span className="font-mono text-slate-800">
-                    {docPrefix.trim() || DEFAULT_DOC_PREFIX}-{new Date().getFullYear()}-0001
+                    {(() => {
+                      // The standard forms (and Ticket) have fixed numbers: show the real format
+                      const { prefix, digits } = requestNumbering({
+                        template: form?.template,
+                        docPrefix: docPrefix.trim(),
+                      });
+                      return `${prefix || DEFAULT_DOC_PREFIX}-${new Date().getFullYear()}-${'1'.padStart(digits, '0')}`;
+                    })()}
                   </span>{' '}
                   นับลำดับแยกตามคำนำหน้าและปี
                 </span>

@@ -9,15 +9,10 @@ export const PO_FORM_ID = 'form-po-jrf';
 export const PO_WORKFLOW_ID = 'wf-po-jrf';
 export const PO_SEED_MARKER = 'seed-po-form';
 export const PO_FORM_NAME = 'P&O Business Requirement (JRF)';
-/** JRF numbers read JRF-<year>-<5 digits>, e.g. JRF-2026-00001. */
+/** JRF numbers read JRF-<year>-<5 digits>, e.g. JRF-2026-00001 (see requestNumbering in forms.ts). */
 export const PO_DOC_PREFIX = 'JRF';
-export const PO_RUNNING_DIGITS = 5;
 /** The prefix the form was first saved with; an admin's sign-in moves it to PO_DOC_PREFIX. */
 export const PO_OLD_DOC_PREFIX = 'PO';
-
-/** Running-number digits for a form: 5 for the JRF, the default for every other form. */
-export const runningDigitsFor = (form?: Pick<MenuItemPermission, 'template'>) =>
-  form?.template === 'po_request' ? PO_RUNNING_DIGITS : undefined;
 
 /** Printed at the top of the form, as on P&O's paper form. */
 export const PO_HEADER = {
