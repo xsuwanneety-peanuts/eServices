@@ -58,6 +58,36 @@ export const isTitleField = (label: string) => TITLE_LABELS.includes(label.trim(
 /** Digits of the running number unless a form says otherwise, e.g. 0007. */
 export const DEFAULT_RUNNING_DIGITS = 4;
 
+/**
+ * How a form's requests are numbered: <prefix>-<year>-<running>. The standard forms have fixed
+ * numbers, whatever prefix they were saved with:
+ *   Memorandum      MEMO-2026-00001
+ *   IT & Request    ITR-2026-00001
+ *   P&O JRF         JRF-2026-00001 (its saved prefix)
+ *   Ticket Request  TICKET-2026-00001 (a form-builder form saved with the prefix "Ticket")
+ * Earlier numbers are counted without regard to case, so Ticket-2026-0001 is followed by
+ * TICKET-2026-00002. Every other form uses its own prefix and 4 digits.
+ */
+export const requestNumbering = (
+  form?: Pick<MenuItemPermission, 'template' | 'docPrefix'>
+): { prefix: string; digits: number } => {
+  if (form?.template === 'memo') return { prefix: 'MEMO', digits: 5 };
+  if (form?.template === 'it_request') return { prefix: 'ITR', digits: 5 };
+  if (form?.template === 'po_request') return { prefix: form.docPrefix ?? '', digits: 5 };
+  if (form?.docPrefix?.toLowerCase() === 'ticket') return { prefix: 'TICKET', digits: 5 };
+  return { prefix: form?.docPrefix ?? '', digits: DEFAULT_RUNNING_DIGITS };
+};
+
+/** The number the next request from a form will get. */
+export const nextRequestCodeFor = (
+  form: Pick<MenuItemPermission, 'template' | 'docPrefix'> | undefined,
+  codes: string[],
+  now = new Date()
+) => {
+  const { prefix, digits } = requestNumbering(form);
+  return nextRequestCode(prefix, codes, now, digits);
+};
+
 /** The next free number for a prefix in the given year, counted over the requests that already use it. */
 export const nextRequestCode = (
   prefix: string,

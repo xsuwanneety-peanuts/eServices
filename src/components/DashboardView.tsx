@@ -29,6 +29,7 @@ export const DashboardView: React.FC = () => {
     deleteRequestDraft,
     menuPermissions,
     showToast,
+    isAdminLogin,
   } = useApp();
 
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'drafts'>('all');
@@ -128,7 +129,8 @@ export const DashboardView: React.FC = () => {
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-red-200 shadow-xs space-y-3">
           <div className="flex items-center space-x-2">
             <ShieldCheck className="w-4 h-4 text-red-600" />
-            <h2 className="text-base font-bold text-slate-900">รอฉันอนุมัติ</h2>
+            {/* An admin may act on every request waiting for approval, not only their own */}
+            <h2 className="text-base font-bold text-slate-900">{isAdminLogin ? 'คำร้องรออนุมัติ' : 'รอฉันอนุมัติ'}</h2>
             <span className="text-xs bg-red-50 text-red-700 font-bold px-2 py-0.5 rounded-full">
               {approvalQueue.length}
             </span>

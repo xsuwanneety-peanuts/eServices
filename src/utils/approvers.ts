@@ -9,8 +9,9 @@ export const APPROVER_TYPE_LABELS: Record<StepApproverType, string> = {
   department: 'ทุกคนในหน่วยงานที่ระบุ',
 };
 
-// "ผู้บริหาร" sees every request and may approve any step. "ผู้ดูแลระบบ" can do the same and
-// also opens the system-management menus; so can the accounts in ADMIN_EMAILS, whatever their role.
+// "ผู้บริหาร" sees every request but approves only steps that name them. "ผู้ดูแลระบบ" also sees
+// everything, may act in anyone's place and opens the system-management menus; so can the
+// accounts in ADMIN_EMAILS, whatever their role.
 // The old 'admin' role means the same as 'director' and is no longer offered.
 export const ROLE_LABELS: Record<UserPersona['role'], string> = {
   employee: 'พนักงาน',
