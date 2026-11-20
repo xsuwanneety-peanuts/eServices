@@ -338,7 +338,8 @@ export interface KbAttachment {
   chunks: number;
 }
 
-export type FormFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select';
+/** 'file' lets the requester pick files; only their names and sizes are kept for now (no upload yet). */
+export type FormFieldType = 'text' | 'textarea' | 'number' | 'date' | 'select' | 'file';
 
 /** One input on a department-built form. */
 export interface FormFieldDefinition {
