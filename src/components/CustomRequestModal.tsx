@@ -5,9 +5,73 @@ import { resolveStepApprover } from '../utils/approvers';
 import { isTitleField, nextRequestCode } from '../utils/forms';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
 import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
-import { AlertTriangle, Send, X } from 'lucide-react';
+import { AlertTriangle, FileText, Paperclip, Send, Trash2, X } from 'lucide-react';
 
 const handlerLabel = (n: number) => `ผู้ดำเนินการ ${n}`;
+
+/** A file picked in a "แนบไฟล์" field: only its details are kept until upload is connected. */
+type PickedFile = { name: string; size: string; type: string };
+
+const fileSize = (bytes: number) =>
+  bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+
+/** "แนบไฟล์" field: pick one or more files, see them listed, remove any. */
+const FilePicker: React.FC<{ id: string; files: PickedFile[]; onChange: (files: PickedFile[]) => void }> = ({
+  id,
+  files,
+  onChange,
+}) => (
+  <div className="space-y-1.5">
+    <label
+      htmlFor={id}
+      className="flex items-center justify-center gap-2 px-3 py-3 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 text-slate-600 hover:border-red-400 hover:bg-red-50/40 hover:text-red-700 cursor-pointer transition-colors"
+    >
+      <Paperclip className="w-4 h-4" />
+      <span className="font-semibold">เลือกไฟล์แนบ</span>
+      <span className="text-slate-400">(เลือกได้หลายไฟล์)</span>
+    </label>
+    <input
+      id={id}
+      type="file"
+      multiple
+      className="sr-only"
+      onChange={e => {
+        const picked = Array.from(e.target.files ?? []).map(f => ({
+          name: f.name,
+          size: fileSize(f.size),
+          type: f.type || 'application/octet-stream',
+        }));
+        // The same file picked twice is listed once
+        onChange([...files, ...picked.filter(p => !files.some(f => f.name === p.name))]);
+        e.target.value = '';
+      }}
+    />
+    {files.length > 0 && (
+      <ul className="space-y-1">
+        {files.map(file => (
+          <li
+            key={file.name}
+            className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <FileText className="w-3.5 h-3.5 text-red-600 shrink-0" />
+              <span className="font-medium text-slate-800 truncate">{file.name}</span>
+              <span className="text-[11px] text-slate-400 shrink-0">{file.size}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange(files.filter(f => f.name !== file.name))}
+              aria-label={`เอา ${file.name} ออก`}
+              className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+);
 
 /** Fill in and submit a form made in the form builder. */
 export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: () => void }> = ({ form, onClose }) => {
@@ -17,17 +81,29 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
   const fields = (form.fields ?? []).filter(f => !isTitleField(f.label));
   const addsSteps = !!form.requesterAddsSteps;
 
-  const draft = useFormDraft<{ title: string; values: Record<string, string>; handlers: HandlerDraft[] }>(form);
+  const draft = useFormDraft<{
+    title: string;
+    values: Record<string, string>;
+    files: Record<string, PickedFile[]>;
+    handlers: HandlerDraft[];
+  }>(form);
   const [title, setTitle] = useState(draft.restored?.title ?? '');
   const [values, setValues] = useState<Record<string, string>>(draft.restored?.values ?? {});
+  // Files picked in "แนบไฟล์" fields, by field id
+  const [files, setFiles] = useState<Record<string, PickedFile[]>>(draft.restored?.files ?? {});
   const [handlers, setHandlers] = useState<HandlerDraft[]>(
     draft.restored?.handlers ?? (addsSteps ? [newHandler()] : [])
   );
   const [error, setError] = useState('');
   const saveDraft = () => {
-    draft.save(title, { title, values, handlers });
+    draft.save(title, { title, values, files, handlers });
     onClose();
   };
+  /** A field's answer as text: what was typed, or the names of the files picked. */
+  const answerOf = (fieldId: string, type: string) =>
+    type === 'file'
+      ? (files[fieldId] ?? []).map(f => f.name).join(', ')
+      : (values[fieldId] ?? '').trim();
 
   // The form's own steps, resolved for the person filling it in
   const fixedSteps = (workflow?.steps ?? [])
@@ -41,8 +117,10 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return setError('กรุณากรอกหัวเรื่อง');
-    const missing = fields.find(f => f.required && !(values[f.id] ?? '').trim());
-    if (missing) return setError(`กรุณากรอก "${missing.label}"`);
+    const missing = fields.find(f => f.required && !answerOf(f.id, f.type));
+    if (missing) {
+      return setError(missing.type === 'file' ? `กรุณาแนบไฟล์ "${missing.label}"` : `กรุณากรอก "${missing.label}"`);
+    }
     if (!workflow) return setError('แบบฟอร์มนี้ยังไม่มีขั้นตอนอนุมัติ กรุณาติดต่อผู้ดูแลระบบ');
     if (handlers.some(h => !h.employeeId)) return setError('กรุณาเลือกผู้ดำเนินการให้ครบทุกขั้น หรือลบขั้นที่ไม่ใช้');
     if (fixedSteps.length === 0 && handlers.length === 0) {
@@ -50,8 +128,12 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
     }
 
     const answers = fields
-      .map(f => ({ label: f.label, value: (values[f.id] ?? '').trim() }))
+      .map(f => ({ label: f.label, value: answerOf(f.id, f.type) }))
       .filter(a => a.value);
+    // Only the file names and sizes are kept for now: the files themselves are not uploaded yet
+    const attachments = fields
+      .filter(f => f.type === 'file')
+      .flatMap(f => files[f.id] ?? []);
     createNewRequest(
       {
         title: title.trim(),
@@ -63,6 +145,7 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
         formId: form.id,
         answers,
         details: answers.map(a => `${a.label}: ${a.value}`).join('\n'),
+        ...(attachments.length ? { attachments } : {}),
       },
       {},
       handlersToSteps(handlers, handlerLabel)
@@ -140,7 +223,13 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
                 <label htmlFor={id} className="block font-semibold text-slate-700 mb-1">
                   {field.label} {field.required && <span className="text-rose-600">*</span>}
                 </label>
-                {field.type === 'textarea' ? (
+                {field.type === 'file' ? (
+                  <FilePicker
+                    id={id}
+                    files={files[field.id] ?? []}
+                    onChange={list => setFiles(prev => ({ ...prev, [field.id]: list }))}
+                  />
+                ) : field.type === 'textarea' ? (
                   <textarea id={id} rows={3} value={value} onChange={e => set(e.target.value)} className={inputClass} />
                 ) : field.type === 'select' ? (
                   <select id={id} value={value} onChange={e => set(e.target.value)} className={inputClass}>

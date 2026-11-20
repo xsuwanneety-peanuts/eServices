@@ -17,7 +17,7 @@ import { askConfirm } from './ConfirmDialog';
 type FieldDraft = CustomFormInput['fields'][number] & { optionsText: string };
 type StepDraft = CustomFormInput['steps'][number];
 
-const FIELD_TYPES: FormFieldType[] = ['text', 'textarea', 'number', 'date', 'select'];
+const FIELD_TYPES: FormFieldType[] = ['text', 'textarea', 'number', 'date', 'select', 'file'];
 const APPROVER_TYPES: StepApproverType[] = ['reports_to', 'reports_to_2', 'employee'];
 
 const move = <T,>(list: T[], index: number, delta: number): T[] => {

@@ -6,6 +6,7 @@ export const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   number: 'ตัวเลข',
   date: 'วันที่',
   select: 'ตัวเลือก (dropdown)',
+  file: 'แนบไฟล์',
 };
 
 /** Prefix for form codes such as HR-FORM-01. */
