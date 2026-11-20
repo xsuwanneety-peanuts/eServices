@@ -5,6 +5,7 @@ import { FormBuilderModal } from './FormBuilderModal';
 import { ItRequestModal } from './ItRequestModal';
 import { MemoRequestModal } from './MemoRequestModal';
 import { PoRequestModal } from './PoRequestModal';
+import { QuotationRequestModal } from './QuotationRequestModal';
 
 /** The form being filled in, or the form builder, opened from the แบบฟอร์ม menu. */
 export const FormModals: React.FC = () => {
@@ -19,6 +20,8 @@ export const FormModals: React.FC = () => {
           <MemoRequestModal form={form} onClose={close} />
         ) : form.template === 'it_request' ? (
           <ItRequestModal form={form} onClose={close} />
+        ) : form.template === 'quotation' ? (
+          <QuotationRequestModal form={form} onClose={close} />
         ) : form.template === 'po_request' ? (
           <PoRequestModal form={form} onClose={close} />
         ) : (

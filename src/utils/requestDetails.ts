@@ -7,6 +7,7 @@ import {
   workDuration,
 } from './itRequest';
 import { poDate } from './poRequest';
+import { constructionLines, formatBaht, formatCount, quotationPeriod } from './quotation';
 
 /** One labelled value of a request. Long or multi-line text takes the full width. */
 export interface DetailField {
@@ -154,6 +155,43 @@ export const requestDetailSections = (request: DocumentRequest): DetailSection[]
       {
         title: 'Description Of Request',
         fields: [field('เรียน', po.to, false), field('', po.description, true)],
+      },
+    ]);
+  }
+
+  if (request.quotation) {
+    const q = request.quotation;
+    return clean([
+      {
+        fields: [
+          field('เลขที่', q.docNo, false),
+          field('วันที่', q.date, false),
+          field('ประเภท', q.insuranceType, false),
+          field('ผู้เอาประกันภัย', q.insured, false),
+          field('โครงการ', q.project, false),
+          field('จำนวนผู้เข้าร่วม', q.participants ? `${formatCount(q.participants)} ราย` : '', false),
+        ],
+      },
+      {
+        title: 'ทรัพย์สินและระยะเวลา',
+        fields: [
+          field('สถานที่ตั้งทรัพย์สิน', q.location),
+          field('ลักษณะสิ่งปลูกสร้าง', constructionLines(q).join('\n'), true),
+          field('สถานที่ใช้เป็น', q.occupancy),
+          field('ระยะเวลาเอาประกันภัย', quotationPeriod(q)),
+          field('ทรัพย์สินที่เอาประกันภัย', q.propertyInsured),
+        ],
+      },
+      {
+        title: 'ความคุ้มครองและเบี้ยประกันภัย',
+        fields: [
+          field('ความคุ้มครอง', q.coverage, true),
+          field('จำกัดวงเงินความรับผิด', `${formatBaht(q.liabilityLimit)} บาท ต่อครั้งและตลอดระยะเวลาเอาประกันภัย`),
+          field('ทุนประกันภัย', `${formatBaht(q.sumInsured)} บาท ต่อราย`, false),
+          field('เบี้ยประกันภัยรวม', `${formatBaht(q.premium)} บาท`, false),
+          field('ข้อยกเว้น', q.exclusions.map((e, i) => `${i + 1}. ${e}`).join('\n'), true),
+          field('ข้อเสนอมีผลภายใน', q.validityDays ? `${q.validityDays} วัน` : '', false),
+        ],
       },
     ]);
   }

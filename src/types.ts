@@ -175,6 +175,54 @@ export interface DocumentRequest {
   itRequest?: ItRequestData;
   /** Set when the request is a P&O Business Requirement (printed in P&O's JRF layout). */
   poRequest?: PoRequestData;
+  /** Set when the request is an insurance quotation (ข้อเสนอการประกันภัย). */
+  quotation?: QuotationData;
+}
+
+/**
+ * An insurance quotation (ข้อเสนอการประกันภัย) for a residential building, as on the company's
+ * paper quotation. Amounts and counts are kept as typed (digits, no commas).
+ */
+export interface QuotationData {
+  /** เลขที่: the request number, given when the quotation is sent. */
+  docNo: string;
+  /** วันที่: long Thai date, e.g. 10 กรกฎาคม พ.ศ. 2569, given when sent. */
+  date: string;
+  /** ประเภท */
+  insuranceType: string;
+  /** ผู้เอาประกันภัย */
+  insured: string;
+  /** โครงการ (optional) */
+  project: string;
+  /** จำนวนผู้เข้าร่วม, in ราย (optional) */
+  participants: string;
+  /** สถานที่ตั้งทรัพย์สิน */
+  location: string;
+  /** ลักษณะสิ่งปลูกสร้าง: the construction classes ticked (1, 2, 3). */
+  constructionClasses: number[];
+  /** สถานที่ใช้เป็น */
+  occupancy: string;
+  /** ระยะเวลาเอาประกันภัย: a number and its unit. */
+  periodValue: string;
+  periodUnit: 'วัน' | 'เดือน' | 'ปี';
+  /** ทรัพย์สินที่เอาประกันภัย */
+  propertyInsured: string;
+  /** ความคุ้มครอง: one item per line. */
+  coverage: string;
+  /** จำกัดวงเงินความรับผิด (บาท) */
+  liabilityLimit: string;
+  /** The policy wording the cover follows. */
+  policyReference: string;
+  /** เงื่อนไขที่สำคัญ */
+  conditions: string;
+  /** ทุนประกันภัย (บาท ต่อราย) */
+  sumInsured: string;
+  /** เบี้ยประกันภัยรวม (บาท) */
+  premium: string;
+  /** ข้อยกเว้น: the clauses chosen, in order. */
+  exclusions: string[];
+  /** ข้อเสนอนี้มีผลบังคับใช้ภายใน ... วัน */
+  validityDays: string;
 }
 
 /**
@@ -370,7 +418,7 @@ export interface MenuItemPermission {
   /** The requester adds the people who handle the request, as many as needed, when filling it in. */
   requesterAddsSteps?: boolean;
   /** A built-in form with its own screen and print layout (not made in the form builder). */
-  template?: 'memo' | 'it_request' | 'po_request';
+  template?: 'memo' | 'it_request' | 'po_request' | 'quotation';
   /** Sign-in email of whoever created the form; they (and admins) may edit or delete it. */
   createdBy?: string;
   allowedDepartments: Record<DepartmentId, boolean>;
