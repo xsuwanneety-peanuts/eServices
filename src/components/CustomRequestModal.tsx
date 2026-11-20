@@ -4,6 +4,7 @@ import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
 import { isTitleField, nextRequestCode } from '../utils/forms';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
+import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
 import { AlertTriangle, Send, X } from 'lucide-react';
 
 const handlerLabel = (n: number) => `ผู้ดำเนินการ ${n}`;
@@ -16,10 +17,17 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
   const fields = (form.fields ?? []).filter(f => !isTitleField(f.label));
   const addsSteps = !!form.requesterAddsSteps;
 
-  const [title, setTitle] = useState('');
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [handlers, setHandlers] = useState<HandlerDraft[]>(addsSteps ? [newHandler()] : []);
+  const draft = useFormDraft<{ title: string; values: Record<string, string>; handlers: HandlerDraft[] }>(form);
+  const [title, setTitle] = useState(draft.restored?.title ?? '');
+  const [values, setValues] = useState<Record<string, string>>(draft.restored?.values ?? {});
+  const [handlers, setHandlers] = useState<HandlerDraft[]>(
+    draft.restored?.handlers ?? (addsSteps ? [newHandler()] : [])
+  );
   const [error, setError] = useState('');
+  const saveDraft = () => {
+    draft.save(title, { title, values, handlers });
+    onClose();
+  };
 
   // The form's own steps, resolved for the person filling it in
   const fixedSteps = (workflow?.steps ?? [])
@@ -59,6 +67,7 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
       {},
       handlersToSteps(handlers, handlerLabel)
     );
+    draft.sent();
     onClose();
   };
 
@@ -90,6 +99,7 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
                 )}
               </span>
             </p>
+            <DraftNotice savedAt={draft.draft?.savedAt} />
           </div>
           <button
             type="button"
@@ -176,13 +186,14 @@ export const CustomRequestModal: React.FC<{ form: MenuItemPermission; onClose: (
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
           >
             ยกเลิก
           </button>
+          <SaveDraftButton onClick={saveDraft} />
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             ส่งคำร้อง

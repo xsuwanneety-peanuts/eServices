@@ -40,7 +40,11 @@ export interface UserPersona {
   departmentId: DepartmentId;
   departmentName: string;
   position: string;
-  role: 'employee' | 'approver' | 'manager' | 'director' | 'admin';
+  /**
+   * 'system_admin' (ผู้ดูแลระบบ) has everything 'director' has, plus the system-management menus
+   * and admin rights in the Firestore rules. 'admin' is a retired name for 'director'.
+   */
+  role: 'employee' | 'approver' | 'manager' | 'director' | 'system_admin' | 'admin';
   avatar: string;
   /** Employee this person reports to (their line manager). Unset for the top of a reporting line. */
   reportsToId?: string;
@@ -171,6 +175,28 @@ export interface DocumentRequest {
   itRequest?: ItRequestData;
   /** Set when the request is a P&O Business Requirement (printed in P&O's JRF layout). */
   poRequest?: PoRequestData;
+}
+
+/**
+ * A request saved with "บันทึกฉบับร่าง": kept for the person who saved it and not sent to any
+ * approver until they open it again and send it.
+ */
+export interface RequestDraft {
+  id: string;
+  /** The form it was saved from (MenuItemPermission.id); opening the draft opens that form. */
+  formId: string;
+  /** The form's name when the draft was saved, shown in the list even if the form is renamed. */
+  formName: string;
+  /** The title typed so far (may be empty). */
+  title: string;
+  /** The form's own fields as JSON; each form reads back its own shape. */
+  state: string;
+  /** dd.mm.yyyy hh:mm of the last save */
+  savedAt: string;
+  /** The same moment in milliseconds, to list the latest first. */
+  savedAtMs: number;
+  /** Email of the person who saved it; only they can read it (Firestore rules). */
+  createdBy: string;
 }
 
 /**

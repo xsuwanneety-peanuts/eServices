@@ -81,9 +81,10 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
     canEditForm,
     activeArticleId,
     setActiveArticleId,
+    isAdminLogin,
   } = useApp();
 
-  const { user, isAdminLogin, signOutUser } = useAuth();
+  const { user, signOutUser } = useAuth();
 
   // Admin backup: everything shared in Firestore, as one JSON file saved by the browser
   const downloadBackup = () => {

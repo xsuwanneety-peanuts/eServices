@@ -4,7 +4,8 @@ import { DepartmentId, UserPersona } from '../types';
 
 // Firestore rules cannot search the Employee Directory by email, so each employee's department
 // is copied to userDepartments/{sign-in email}. The rules read the signed-in person's own copy
-// to decide which department-only Knowledge Base articles they may read.
+// to decide which department-only Knowledge Base articles they may read, and whether they have
+// the ผู้ดูแลระบบ role (admin rights, like the accounts listed in isAdmin()).
 //
 // Only admins change employees, so an admin's app keeps the copy in step with the directory.
 const COLLECTION = 'userDepartments';
@@ -12,17 +13,26 @@ const COLLECTION = 'userDepartments';
 interface UserDepartment {
   departmentId: DepartmentId;
   disabled: boolean;
+  systemAdmin: boolean;
 }
 
 const same = (a: UserDepartment, b: Record<string, unknown>) =>
-  a.departmentId === b.departmentId && a.disabled === (b.disabled === true);
+  a.departmentId === b.departmentId &&
+  a.disabled === (b.disabled === true) &&
+  a.systemAdmin === (b.systemAdmin === true);
 
 /** Brings userDepartments in line with the directory: adds, changes and removes copies. */
 export const syncUserDepartments = async (employees: UserPersona[]): Promise<number> => {
   const wanted = new Map<string, UserDepartment>();
   employees.forEach(e => {
     const email = e.email.trim().toLowerCase();
-    if (email) wanted.set(email, { departmentId: e.departmentId, disabled: !!e.disabled });
+    if (email) {
+      wanted.set(email, {
+        departmentId: e.departmentId,
+        disabled: !!e.disabled,
+        systemAdmin: e.role === 'system_admin',
+      });
+    }
   });
 
   const saved = await getDocs(collection(db, COLLECTION));

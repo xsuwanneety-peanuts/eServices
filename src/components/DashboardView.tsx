@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { DocumentRequest } from '../types';
+import { DocumentRequest, RequestDraft } from '../types';
+import { askConfirm } from './ConfirmDialog';
 import {
+  FilePen,
+  Trash2,
   ChevronRight,
   ShieldCheck,
   Search,
@@ -21,10 +24,38 @@ export const DashboardView: React.FC = () => {
     approvalQueue,
     isLinkedAccount,
     setActiveTab,
+    requestDrafts,
+    openDraft,
+    deleteRequestDraft,
+    menuPermissions,
+    showToast,
   } = useApp();
 
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'drafts'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const showingDrafts = filterStatus === 'drafts';
+
+  // Drafts are always the person's own, also for admins
+  const filteredDrafts = requestDrafts.filter(d => {
+    const q = searchQuery.trim().toLowerCase();
+    return !q || d.title.toLowerCase().includes(q) || d.formName.toLowerCase().includes(q);
+  });
+  const resumeDraft = (draft: RequestDraft) => {
+    if (!menuPermissions.some(f => f.id === draft.formId)) {
+      showToast('แบบฟอร์มของฉบับร่างนี้ถูกลบไปแล้ว เปิดต่อไม่ได้', 'warning');
+      return;
+    }
+    openDraft(draft);
+  };
+  const removeDraft = async (draft: RequestDraft) => {
+    const ok = await askConfirm({
+      title: 'ลบฉบับร่างนี้?',
+      message: `"${draft.title || draft.formName}" จะถูกลบถาวร`,
+      confirmLabel: 'ลบฉบับร่าง',
+      danger: true,
+    });
+    if (ok) deleteRequestDraft(draft.id);
+  };
 
   // Requests this person approved at some step (not counting submitting their own)
   const myEmail = currentUser.email.toLowerCase();
@@ -137,7 +168,7 @@ export const DashboardView: React.FC = () => {
       <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/90 shadow-xs space-y-4">
         {/* Controls Bar: Filters & Search */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <h2 className="text-base font-bold text-slate-900">{listTitle}</h2>
+          <h2 className="text-base font-bold text-slate-900">{showingDrafts ? 'ฉบับร่างของฉัน' : listTitle}</h2>
 
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
             {/* Filter Tabs */}
@@ -172,6 +203,14 @@ export const DashboardView: React.FC = () => {
               >
                 อนุมัติแล้ว ({approvedCount})
               </button>
+              <button
+                onClick={() => setFilterStatus('drafts')}
+                className={`flex-1 sm:flex-none px-3 py-1 rounded-lg font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                  showingDrafts ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ฉบับร่าง ({requestDrafts.length})
+              </button>
             </div>
 
             {/* Search Input */}
@@ -188,8 +227,75 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* Requests List */}
-        {filteredRequests.length > 0 ? (
+        {/* Drafts: saved but not sent to any approver yet */}
+        {showingDrafts ? (
+          filteredDrafts.length > 0 ? (
+            <div className="divide-y divide-slate-100">
+              {filteredDrafts.map(draft => (
+                <div
+                  key={draft.id}
+                  onClick={() => resumeDraft(draft)}
+                  className="py-3.5 px-3 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors group flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-transparent hover:border-slate-200"
+                >
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap">
+                        <FilePen className="w-3 h-3" />
+                        ฉบับร่าง
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500">{draft.formName}</span>
+                    </div>
+                    <h3
+                      className={`text-sm font-bold group-hover:text-red-700 transition-colors ${
+                        draft.title ? 'text-slate-800' : 'text-slate-400 italic'
+                      }`}
+                    >
+                      {draft.title || 'ยังไม่มีหัวเรื่อง'}
+                    </h3>
+                    <p className="text-xs text-slate-400">บันทึกล่าสุด {draft.savedAt} · ยังไม่ส่งถึงผู้อนุมัติ</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 sm:self-center">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        resumeDraft(draft);
+                      }}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                    >
+                      แก้ไขต่อ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        removeDraft(draft);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      title="ลบฉบับร่าง"
+                      aria-label="ลบฉบับร่าง"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="py-12 text-center space-y-3">
+              <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                <FilePen className="w-6 h-6" />
+              </div>
+              <p className="text-sm text-slate-400">
+                {requestDrafts.length === 0
+                  ? 'ยังไม่มีฉบับร่าง กด "บันทึกฉบับร่าง" ในแบบฟอร์มเพื่อเก็บไว้ส่งทีหลัง'
+                  : 'ไม่พบฉบับร่าง'}
+              </p>
+            </div>
+          )
+        ) : /* Requests List */
+        filteredRequests.length > 0 ? (
           <div className="divide-y divide-slate-100">
             {filteredRequests.map(req => {
               const isPending = req.status === 'in_review' || req.status === 'pending';

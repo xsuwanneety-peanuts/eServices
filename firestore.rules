@@ -13,7 +13,9 @@ rules_version = '2';
 //   department's employees, the people it is shared with by name, its author and admins. Everyone signed in reads the others.
 // - userDepartments/{email} copies each employee's department for these checks; the app
 //   keeps it in step when an admin signs in. People read only their own copy.
-// - Only the admin accounts listed in isAdmin() can change employees, the
+// - Request drafts (requestDrafts) are read and written only by the person who saved them.
+// - Admins are the accounts listed in isAdmin() and employees with the ผู้ดูแลระบบ role.
+// - Only admins can change employees, the
 //   original IT forms and their workflows, or delete requests.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -22,12 +24,22 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Admin sign-in emails (accounts in Firebase Authentication). Keep in sync with
-    // ADMIN_EMAILS in src/lib/firebase.ts.
+    // Admins: the sign-in emails listed here (keep in sync with ADMIN_EMAILS in
+    // src/lib/firebase.ts), plus active employees given the ผู้ดูแลระบบ role in the Employee
+    // Directory (copied to userDepartments by an admin's app; only admins can write it).
     function isAdmin() {
-      return signedIn() && request.auth.token.email in [
-        'it_1@jmi.local'
-      ];
+      return signedIn() && (
+        request.auth.token.email in [
+          'it_1@jmi.local'
+        ]
+        || hasAdminRole()
+      );
+    }
+    function hasAdminRole() {
+      let path = /databases/$(database)/documents/userDepartments/$(request.auth.token.email);
+      return exists(path)
+        && get(path).data.get('systemAdmin', false) == true
+        && get(path).data.get('disabled', false) == false;
     }
 
     match /requests/{id} {
@@ -123,6 +135,14 @@ service cloud.firestore {
       // Only an admin's app updates a chunk, to record its article
       allow update: if isAdmin();
       allow delete: if isAdmin() || ownsExisting();
+    }
+
+    // Requests saved as drafts (not sent to anyone yet): only the person who saved one sees it
+    // (createdBy written out, not through ownsExisting(), so the app's query createdBy == me is allowed)
+    match /requestDrafts/{id} {
+      allow read, delete: if signedIn() && resource.data.createdBy == request.auth.token.email;
+      allow create: if createsAsSelf();
+      allow update: if signedIn() && resource.data.createdBy == request.auth.token.email && createsAsSelf();
     }
 
     // Marker that the starting data has been loaded
