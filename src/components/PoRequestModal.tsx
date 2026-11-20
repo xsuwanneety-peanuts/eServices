@@ -11,6 +11,7 @@ import {
   runningDigitsFor,
 } from '../utils/poRequest';
 import { HandlerDraft, HandlerSteps, handlersToSteps, newHandler } from './HandlerSteps';
+import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
 import poLogo from '../assets/po-logo.png';
 import { AlertTriangle, Send, X } from 'lucide-react';
 
@@ -19,14 +20,29 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
   const { workflows, currentUser, requests, createNewRequest } = useApp();
   const workflow = workflows.find(w => w.id === form.workflowId);
 
-  const [title, setTitle] = useState('');
-  const [clientName, setClientName] = useState(PO_DEFAULT_CLIENT);
-  const [attentionTo, setAttentionTo] = useState('');
-  const [expectedDate, setExpectedDate] = useState('');
-  const [to, setTo] = useState(PO_DEFAULT_TO);
-  const [description, setDescription] = useState('');
-  const [handlers, setHandlers] = useState<HandlerDraft[]>([newHandler()]);
+  type Saved = {
+    title: string;
+    clientName: string;
+    attentionTo: string;
+    expectedDate: string;
+    to: string;
+    description: string;
+    handlers: HandlerDraft[];
+  };
+  const draft = useFormDraft<Saved>(form);
+  const saved = draft.restored;
+  const [title, setTitle] = useState(saved?.title ?? '');
+  const [clientName, setClientName] = useState(saved?.clientName ?? PO_DEFAULT_CLIENT);
+  const [attentionTo, setAttentionTo] = useState(saved?.attentionTo ?? '');
+  const [expectedDate, setExpectedDate] = useState(saved?.expectedDate ?? '');
+  const [to, setTo] = useState(saved?.to ?? PO_DEFAULT_TO);
+  const [description, setDescription] = useState(saved?.description ?? '');
+  const [handlers, setHandlers] = useState<HandlerDraft[]>(saved?.handlers ?? [newHandler()]);
   const [error, setError] = useState('');
+  const saveDraft = () => {
+    draft.save(title, { title, clientName, attentionTo, expectedDate, to, description, handlers });
+    onClose();
+  };
 
   const nextRef = nextRequestCode(
     form.docPrefix ?? '',
@@ -67,6 +83,7 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
       {},
       handlersToSteps(handlers, poApproverTitle)
     );
+    draft.sent();
     onClose();
   };
 
@@ -96,6 +113,7 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
               <p className="text-xs text-slate-500">
                 Client&apos;s Reference Number ถัดไป <span className="font-mono text-slate-700">{nextRef}</span>
               </p>
+              <DraftNotice savedAt={draft.draft?.savedAt} />
             </div>
           </div>
           <button
@@ -207,13 +225,14 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
           >
             ยกเลิก
           </button>
+          <SaveDraftButton onClick={saveDraft} />
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             ส่งคำร้อง

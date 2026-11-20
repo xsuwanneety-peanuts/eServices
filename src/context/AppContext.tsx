@@ -20,6 +20,7 @@ import {
   MemoData,
   ItRequestData,
   PoRequestData,
+  RequestDraft,
 } from '../types';
 import {
   MEMO_FORM,
@@ -217,6 +218,20 @@ interface AppContextType {
   /** Form being filled in (null when none is open). */
   fillingFormId: string | null;
   setFillingFormId: (id: string | null) => void;
+  /** The signed-in person's saved request drafts, latest first. */
+  requestDrafts: RequestDraft[];
+  /** The draft the open form was opened from (null for a blank form). */
+  resumingDraft: RequestDraft | null;
+  /** Open a draft's form, filled in with what was saved. */
+  openDraft: (draft: RequestDraft) => void;
+  /** Save a form as a draft (or update the draft `draftId`); returns the draft's id. */
+  saveRequestDraft: (
+    form: Pick<MenuItemPermission, 'id' | 'menuName'>,
+    title: string,
+    state: unknown,
+    draftId?: string
+  ) => string;
+  deleteRequestDraft: (id: string) => void;
   /** Form builder: null = closed; `form: null` = a new form for that department. */
   formBuilder: { deptId: DepartmentId; form: MenuItemPermission | null } | null;
   setFormBuilder: (state: { deptId: DepartmentId; form: MenuItemPermission | null } | null) => void;
@@ -388,7 +403,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isArray
   );
   const [activeArticleId, setActiveArticleId] = useState<string | null>(null);
-  const [fillingFormId, setFillingFormId] = useState<string | null>(null);
+  const [fillingFormId, setFillingFormIdState] = useState<string | null>(null);
+  const [resumingDraft, setResumingDraft] = useState<RequestDraft | null>(null);
+  // Opening a form from the menu starts blank; closing a form forgets the draft it came from
+  const setFillingFormId = (id: string | null) => {
+    setResumingDraft(null);
+    setFillingFormIdState(id);
+  };
+  const openDraft = (draft: RequestDraft) => {
+    setResumingDraft(draft);
+    setFillingFormIdState(draft.formId);
+  };
+
+  // Each person's drafts, read only by them (Firestore rules)
+  const draftScope = useMemo(
+    () => ({ key: signedInEmail, queries: [[where('createdBy', '==', signedInEmail)]] }),
+    [signedInEmail]
+  );
+  const [draftRows, setDraftRows] = useFirestoreCollection<RequestDraft>('requestDrafts', handleWriteError, draftScope);
+  const requestDrafts = useMemo(() => [...draftRows].sort((a, b) => b.savedAtMs - a.savedAtMs), [draftRows]);
+
+  const saveRequestDraft = (
+    form: Pick<MenuItemPermission, 'id' | 'menuName'>,
+    title: string,
+    state: unknown,
+    draftId?: string
+  ) => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const draft: RequestDraft = {
+      id: draftId ?? `draft-${now.getTime()}-${Math.random().toString(36).slice(2, 7)}`,
+      formId: form.id,
+      formName: form.menuName,
+      title: title.trim(),
+      state: JSON.stringify(state),
+      savedAt: `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      savedAtMs: now.getTime(),
+      createdBy: signedInEmail,
+    };
+    setDraftRows(prev => (prev.some(d => d.id === draft.id) ? prev.map(d => (d.id === draft.id ? draft : d)) : [draft, ...prev]));
+    return draft.id;
+  };
+  const deleteRequestDraft = (id: string) => setDraftRows(prev => prev.filter(d => d.id !== id));
+
   const [formBuilder, setFormBuilder] = useState<{ deptId: DepartmentId; form: MenuItemPermission | null } | null>(
     null
   );
@@ -1461,6 +1518,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         offeredForms,
         fillingFormId,
         setFillingFormId,
+        requestDrafts,
+        resumingDraft,
+        openDraft,
+        saveRequestDraft,
+        deleteRequestDraft,
         formBuilder,
         setFormBuilder,
         activeArticleId,

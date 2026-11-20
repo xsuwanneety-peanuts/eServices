@@ -174,6 +174,28 @@ export interface DocumentRequest {
 }
 
 /**
+ * A request saved with "บันทึกฉบับร่าง": kept for the person who saved it and not sent to any
+ * approver until they open it again and send it.
+ */
+export interface RequestDraft {
+  id: string;
+  /** The form it was saved from (MenuItemPermission.id); opening the draft opens that form. */
+  formId: string;
+  /** The form's name when the draft was saved, shown in the list even if the form is renamed. */
+  formName: string;
+  /** The title typed so far (may be empty). */
+  title: string;
+  /** The form's own fields as JSON; each form reads back its own shape. */
+  state: string;
+  /** dd.mm.yyyy hh:mm of the last save */
+  savedAt: string;
+  /** The same moment in milliseconds, to list the latest first. */
+  savedAtMs: number;
+  /** Email of the person who saved it; only they can read it (Firestore rules). */
+  createdBy: string;
+}
+
+/**
  * A Business Requirement (JRF) sent to P&O. The subject is the request title; the requester,
  * request date and reference number come from the request itself.
  */

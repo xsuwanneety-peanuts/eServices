@@ -5,6 +5,7 @@ import { resolveStepApprover } from '../utils/approvers';
 import { IT_ITEM_TYPES, IT_ITEM_WITH_ASSET_NO } from '../utils/itRequest';
 import { thaiDate } from '../utils/memo';
 import { AlertTriangle, ArrowRight, Lock, Send, X } from 'lucide-react';
+import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
 
 type ItemDraft = { checked: boolean; assetNo: string; detail: string };
 
@@ -14,11 +15,20 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
   const workflow = workflows.find(w => w.id === form.workflowId);
   const dept = departments.find(d => d.id === currentUser.departmentId);
 
-  const [phone, setPhone] = useState('');
-  const [location, setLocation] = useState('');
-  const [items, setItems] = useState<Record<string, ItemDraft>>({});
-  const [symptom, setSymptom] = useState('');
+  type Saved = { phone: string; location: string; items: Record<string, ItemDraft>; symptom: string };
+  const draft = useFormDraft<Saved>(form);
+  const saved = draft.restored;
+  const [phone, setPhone] = useState(saved?.phone ?? '');
+  const [location, setLocation] = useState(saved?.location ?? '');
+  const [items, setItems] = useState<Record<string, ItemDraft>>(saved?.items ?? {});
+  const [symptom, setSymptom] = useState(saved?.symptom ?? '');
   const [error, setError] = useState('');
+  // This form has no title box: the draft is listed by the items ticked, or the symptom
+  const saveDraft = () => {
+    const ticked = IT_ITEM_TYPES.filter(type => items[type]?.checked).join(', ');
+    draft.save(ticked || symptom.trim().slice(0, 80), { phone, location, items, symptom });
+    onClose();
+  };
 
   const setItem = (type: string, patch: Partial<ItemDraft>) =>
     setItems(prev => ({ ...prev, [type]: { ...(prev[type] ?? { checked: false, assetNo: '', detail: '' }), ...patch } }));
@@ -58,6 +68,7 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
         symptom: symptom.trim(),
       },
     });
+    draft.sent();
     onClose();
   };
 
@@ -85,6 +96,7 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
               {form.menuName}
             </h2>
             <p className="text-xs text-slate-500">1. ส่วนของผู้ออกใบสั่งงาน</p>
+            <DraftNotice savedAt={draft.draft?.savedAt} />
           </div>
           <button
             type="button"
@@ -233,13 +245,14 @@ export const ItRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
           >
             ยกเลิก
           </button>
+          <SaveDraftButton onClick={saveDraft} />
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             ส่งใบสั่งงาน

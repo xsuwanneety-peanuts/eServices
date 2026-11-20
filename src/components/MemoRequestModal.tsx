@@ -4,6 +4,7 @@ import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
 import { MEMO_CLOSING_LINE, nextMemoNo, thaiDate } from '../utils/memo';
 import { AlertTriangle, Lock, Send, X } from 'lucide-react';
+import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
 
 /** Fill in and send an internal memorandum (บันทึกภายใน). */
 export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () => void }> = ({ form, onClose }) => {
@@ -12,12 +13,19 @@ export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () 
   // Signature boxes after the author's own, in signing order
   const approvalSteps = (workflow?.steps ?? []).filter(step => step.approverType !== 'requester');
 
-  const [to, setTo] = useState('');
-  const [subject, setSubject] = useState('');
-  const [background, setBackground] = useState('');
-  const [summary, setSummary] = useState('');
-  const [picked, setPicked] = useState<Record<string, string>>({});
+  type Saved = { to: string; subject: string; background: string; summary: string; picked: Record<string, string> };
+  const draft = useFormDraft<Saved>(form);
+  const saved = draft.restored;
+  const [to, setTo] = useState(saved?.to ?? '');
+  const [subject, setSubject] = useState(saved?.subject ?? '');
+  const [background, setBackground] = useState(saved?.background ?? '');
+  const [summary, setSummary] = useState(saved?.summary ?? '');
+  const [picked, setPicked] = useState<Record<string, string>>(saved?.picked ?? {});
   const [error, setError] = useState('');
+  const saveDraft = () => {
+    draft.save(subject, { to, subject, background, summary, picked });
+    onClose();
+  };
 
   // Anyone but the author can be asked to sign, except people who are switched off
   const candidates = employees
@@ -47,6 +55,7 @@ export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () 
       },
       picked
     );
+    draft.sent();
     onClose();
   };
 
@@ -74,6 +83,7 @@ export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () 
               {form.menuName}
             </h2>
             <p className="text-xs text-slate-500">บันทึกภายใน</p>
+            <DraftNotice savedAt={draft.draft?.savedAt} />
           </div>
           <button
             type="button"
@@ -220,13 +230,14 @@ export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () 
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
+            className="px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
           >
             ยกเลิก
           </button>
+          <SaveDraftButton onClick={saveDraft} />
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             ส่งบันทึก
