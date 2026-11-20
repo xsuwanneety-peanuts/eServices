@@ -34,7 +34,6 @@ import {
   withCurrentMemoWording,
   memoAnswers,
   memoDetails,
-  nextMemoNo,
   thaiDate,
 } from '../utils/memo';
 import {
@@ -58,7 +57,7 @@ import {
 import { KNOWLEDGE_ARTICLES } from '../data/knowledgeBase';
 import { deleteKbFiles, linkKbFilesToArticlesOnce, uploadKbFile } from '../utils/kbFiles';
 import { syncUserDepartments } from '../utils/userDepartments';
-import { renumberRequestsOnce } from '../utils/renumber';
+import { renumberRequestsOnce, syncMemoNumbers } from '../utils/renumber';
 import {
   CORPORATE_DEPARTMENTS,
   USER_PERSONAS,
@@ -583,7 +582,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isAdminLogin || !requestsLoaded || !notificationsLoaded || !permissionsLoaded || renumberStarted.current) return;
     renumberStarted.current = true;
     renumberRequestsOnce(requests, emailNotifications, menuPermissions)
-      .then(plan => plan.length && console.info('Requests renumbered:', plan))
+      .then(plan => {
+        if (plan.length) console.info('Requests renumbered:', plan);
+        // A memo's "ที่" follows its (possibly new) request number
+        return syncMemoNumbers(requests, new Map(plan.map(p => [p.id, p.to])));
+      })
+      .then(memos => memos && console.info('Memo numbers updated:', memos))
       .catch(error => console.warn('Requests not renumbered:', error));
   }, [isAdminLogin, requestsLoaded, notificationsLoaded, permissionsLoaded]);
 
@@ -970,11 +974,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       requests.map(r => r.code),
       now
     );
-    // A memo gets its date and running number here, at the moment it is sent
+    // A memo gets its date here, at the moment it is sent; its "ที่" is the request number
     const memo: MemoData | undefined = newReq.memo && {
       ...newReq.memo,
       date: thaiDate(now),
-      docNo: nextMemoNo(currentUser.departmentId, requests, now),
+      docNo: requestCode,
     };
 
     const itRequest = newReq.itRequest;

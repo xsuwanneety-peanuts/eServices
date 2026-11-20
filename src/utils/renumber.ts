@@ -65,6 +65,28 @@ export const planRenumbering = (
   return plan;
 };
 
+/**
+ * A memo's "ที่" is its request number (MEMO-2026-00001). Memos sent before that kept their own
+ * number (IT015/69); this sets each memo's "ที่" to its request number, `codes` giving numbers
+ * that were just changed. Only memos that differ are written, so running it again does nothing.
+ */
+export const syncMemoNumbers = async (
+  requests: DocumentRequest[],
+  codes: Map<string, string> = new Map()
+): Promise<number> => {
+  const batch = writeBatch(db);
+  let changes = 0;
+  requests.forEach(request => {
+    const code = codes.get(request.id) ?? request.code;
+    if (request.memo && code.startsWith('MEMO-') && request.memo.docNo !== code) {
+      batch.update(doc(db, 'requests', request.id), { 'memo.docNo': code });
+      changes++;
+    }
+  });
+  if (changes > 0) await batch.commit();
+  return changes;
+};
+
 /** Gives old requests their new-format numbers, once per project. Returns what was changed. */
 export const renumberRequestsOnce = async (
   requests: DocumentRequest[],

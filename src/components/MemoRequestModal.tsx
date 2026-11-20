@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { resolveStepApprover } from '../utils/approvers';
-import { MEMO_CLOSING_LINE, nextMemoNo, thaiDate } from '../utils/memo';
+import { MEMO_CLOSING_LINE, thaiDate } from '../utils/memo';
+import { nextRequestCodeFor } from '../utils/forms';
 import { AlertTriangle, Lock, Send, X } from 'lucide-react';
 import { DraftNotice, SaveDraftButton, useFormDraft } from './FormDraft';
 
@@ -128,7 +129,10 @@ export const MemoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () 
               <span className={labelClass}>ที่</span>
               <p className={lockedClass} title="ระบบออกเลขให้เมื่อส่ง">
                 <Lock className="w-3 h-3 shrink-0" />
-                {nextMemoNo(currentUser.departmentId, requests)}
+                {nextRequestCodeFor(
+                  form,
+                  requests.map(r => r.code)
+                )}
               </p>
             </div>
             <div className="sm:col-span-3">

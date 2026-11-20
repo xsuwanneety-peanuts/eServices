@@ -200,7 +200,9 @@ export const PrintSlipModal: React.FC = () => {
         ? PoRequestDocument
         : SlipDocument;
   const fileName = isMemo
-    ? `Memo-${activeRequest.memo!.docNo.replace('/', '-')}.pdf`
+    ? activeRequest.memo!.docNo.startsWith('MEMO-')
+      ? `${activeRequest.memo!.docNo}.pdf`
+      : `Memo-${activeRequest.memo!.docNo.replace('/', '-')}.pdf` // older numbers such as IT015/69
     : isPoRequest && !activeRequest.code.startsWith('JRF-')
       ? `JRF-${activeRequest.code}.pdf` // JRFs numbered before the JRF- prefix (PO-yyyy-nnnn)
       : `${activeRequest.code}.pdf`;

@@ -278,7 +278,7 @@ export interface ItRequestData {
 
 /** Content of an internal memorandum (บันทึกภายใน). The subject is the request title. */
 export interface MemoData {
-  /** Running number per department and Buddhist year, e.g. IT015/69. */
+  /** "ที่": the request number, e.g. MEMO-2026-00001 (memos from before 2026-11 read IT015/69). */
   docNo: string;
   /** Addressee (เรียน). */
   to: string;
