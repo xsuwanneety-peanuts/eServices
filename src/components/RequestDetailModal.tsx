@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { closeOnBackdrop } from './backdrop';
 import { useApp } from '../context/AppContext';
 import { ItStepPanel } from './ItStepPanel';
 import { RequestDetails } from './RequestDetails';
@@ -131,7 +132,8 @@ export const RequestDetailModal: React.FC = () => {
   const isItTaskStep = !!activeRequest.itRequest && !!currentStep?.task;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div {...closeOnBackdrop(() => setActiveRequestId(null))}
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="bg-red-900 text-white px-5 py-4 flex items-center justify-between">

@@ -1,4 +1,5 @@
 import React, { forwardRef, useRef, useState } from 'react';
+import { closeOnBackdrop } from './backdrop';
 import { useApp } from '../context/AppContext';
 import { DocumentRequest } from '../types';
 import { MemoDocument } from './MemoDocument';
@@ -226,7 +227,8 @@ export const PrintSlipModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+    <div {...closeOnBackdrop(() => setIsPrintModalOpen(false))}
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full overflow-hidden flex flex-col max-h-[95vh]">
         {/* Modal Toolbar */}
         <div className="bg-slate-900 text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-2">

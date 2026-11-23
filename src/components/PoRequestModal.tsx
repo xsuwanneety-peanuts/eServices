@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { closeOnBackdrop } from './backdrop';
 import { useApp } from '../context/AppContext';
 import { MenuItemPermission } from '../types';
 import { nextRequestCodeFor } from '../utils/forms';
@@ -91,6 +92,7 @@ export const PoRequestModal: React.FC<{ form: MenuItemPermission; onClose: () =>
 
   return (
     <div
+      {...closeOnBackdrop(onClose)}
       className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
