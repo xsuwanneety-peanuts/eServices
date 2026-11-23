@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { closeOnBackdrop } from './backdrop';
 import { useApp } from '../context/AppContext';
 import {
   X,
@@ -472,7 +473,8 @@ export const NewRequestModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+    <div {...closeOnBackdrop(() => setIsNewRequestModalOpen(false))}
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-white">

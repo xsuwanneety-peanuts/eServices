@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { closeOnBackdrop } from './backdrop';
 import { AlertTriangle, HelpCircle } from 'lucide-react';
 
 // The app's own confirm and text-input boxes. The browser's built-in ones (window.confirm,
@@ -79,6 +80,7 @@ export const ConfirmDialogHost: React.FC = () => {
 
   return (
     <div
+      {...closeOnBackdrop(() => finish(false))}
       className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
       role="alertdialog"
       aria-modal="true"
