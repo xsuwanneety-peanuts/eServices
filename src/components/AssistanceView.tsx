@@ -101,10 +101,7 @@ export const AssistanceView: React.FC = () => {
   const ask = async (question: string) => {
     const q = question.trim();
     if (!q || busy) return;
-    if (!hasSources) {
-      showToast('เปิดใช้ Knowledge Base หรือเพิ่มลิงก์ / ข้อความก่อนถาม', 'warning');
-      return;
-    }
+    // Without any source the assistant still answers, from general knowledge (labelled as such)
     setInput('');
     setSuggestions([]);
     setMessages(prev => [...prev, { id: newId(), sender: 'user', text: q }]);
@@ -203,7 +200,9 @@ export const AssistanceView: React.FC = () => {
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">ผู้ช่วย JMI E-Service</p>
               <p className="text-[11px] text-slate-500 truncate">
-                {hasSources ? `ตอบจาก: ${sourceSummary}` : 'ยังไม่มีแหล่งความรู้ เปิดใช้ Knowledge Base หรือเพิ่มลิงก์ / ข้อความ'}
+                {hasSources
+                  ? `ตอบจาก: ${sourceSummary} และความรู้ทั่วไปเมื่อไม่พบในแหล่งข้อมูล`
+                  : 'ตอบจากความรู้ทั่วไป (ยังไม่ได้เปิดแหล่งข้อมูลของบริษัท)'}
               </p>
             </div>
             {messages.length > 0 && (
@@ -265,7 +264,7 @@ export const AssistanceView: React.FC = () => {
                 }
               }}
               rows={1}
-              placeholder={hasSources ? 'พิมพ์คำถาม เช่น ลาป่วยต้องแนบใบรับรองแพทย์ไหม' : 'เพิ่มแหล่งความรู้ก่อนเริ่มถาม'}
+              placeholder="พิมพ์คำถาม เช่น ลาป่วยต้องแนบใบรับรองแพทย์ไหม"
               aria-label="คำถาม"
               disabled={busy}
               className="flex-1 resize-none max-h-32 px-3 py-2.5 border border-slate-300 rounded-xl bg-white text-sm text-slate-800 focus:outline-hidden focus:border-red-500 disabled:bg-slate-50"
@@ -600,8 +599,8 @@ const Welcome: React.FC<{
       <p className="text-base font-bold text-slate-900">สวัสดี มีอะไรให้ช่วยค้นหาไหม</p>
       <p className="text-xs text-slate-500 mt-1 max-w-md">
         {hasSources
-          ? 'ถามเรื่องระเบียบ ขั้นตอน หรือวิธีใช้งาน ผู้ช่วยจะตอบจากบทความ Knowledge Base และเอกสารที่คุณเพิ่มไว้เท่านั้น'
-          : 'เปิดใช้ Knowledge Base หรือเพิ่มลิงก์ / ข้อความในแหล่งข้อมูลของฉันก่อน แล้วค่อยเริ่มถาม'}
+          ? 'ถามได้ทุกเรื่อง ผู้ช่วยจะตอบจากบทความ Knowledge Base และเอกสารที่คุณเพิ่มไว้ก่อน ถ้าไม่มีจะตอบจากความรู้ทั่วไปและบอกให้รู้'
+          : 'ตอนนี้ผู้ช่วยตอบจากความรู้ทั่วไปเท่านั้น เปิดใช้ Knowledge Base เพื่อให้ตอบตามข้อมูลของบริษัท'}
       </p>
     </div>
     {hasSources &&
