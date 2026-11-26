@@ -38,7 +38,7 @@ export const formKeyOf = (request: DocumentRequest) => request.formId || `cat:${
 export const isOpen = (request: DocumentRequest) =>
   request.status === 'pending' || request.status === 'in_review';
 
-const periodStart = (period: DashboardPeriod, now: Date): Date | null => {
+export const periodStart = (period: DashboardPeriod, now: Date): Date | null => {
   switch (period) {
     case 'month':
       return new Date(now.getFullYear(), now.getMonth(), 1);

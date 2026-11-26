@@ -5,10 +5,19 @@ import {
   formatWait,
   formKeyOf,
   PERIOD_LABELS,
+  periodStart,
   type DashboardFilters,
   type DashboardPeriod,
 } from '../utils/dashboardStats';
-import { AlertTriangle, BarChart3, CheckCircle2, Clock, FileText, Hourglass, Users } from 'lucide-react';
+import { EmailTicketsPanel } from './EmailTicketsPanel';
+import { AlertTriangle, BarChart3, CheckCircle2, Clock, FileText, Hourglass, LayoutDashboard, Mail, Users } from 'lucide-react';
+
+type DashboardView = 'overview' | 'email';
+
+const VIEWS: { key: DashboardView; label: string; icon: typeof Mail }[] = [
+  { key: 'overview', label: 'ภาพรวมคำร้อง', icon: LayoutDashboard },
+  { key: 'email', label: 'Ticket จากอีเมล', icon: Mail },
+];
 
 // Management dashboard: an overview of every request for ผู้บริหาร and ผู้ดูแลระบบ. The home page
 // (เมนูของฉัน) stays each person's own view; this one shows where work is stuck across the company.
@@ -23,6 +32,7 @@ export const ManagementDashboardView: React.FC = () => {
   const { requests, workflows, menuPermissions, departments, setActiveRequestId } = useApp();
   const [filters, setFilters] = useState<DashboardFilters>({ period: 'month', departmentId: 'all', formKey: 'all' });
   const [showAllWaiting, setShowAllWaiting] = useState(false);
+  const [view, setView] = useState<DashboardView>('overview');
 
   const formLabel = useMemo(() => {
     const names = new Map<string, string>();
@@ -65,9 +75,13 @@ export const ManagementDashboardView: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">แดชบอร์ด</h1>
-          <p className="text-xs text-slate-400 mt-0.5">ภาพรวมคำร้องทั้งบริษัท งานที่ค้าง และเวลาที่ใช้อนุมัติ</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {view === 'overview'
+              ? 'ภาพรวมคำร้องทั้งบริษัท งานที่ค้าง และเวลาที่ใช้อนุมัติ'
+              : 'ติดตาม Ticket ที่เปิดจากอีเมล ไม่ให้งานตกหล่น'}
+          </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:w-[560px]">
+        <div className={`grid grid-cols-1 gap-2 ${view === 'overview' ? 'sm:grid-cols-3 lg:w-[560px]' : 'sm:w-48'}`}>
           <select
             aria-label="ช่วงเวลา"
             className={selectClass}
@@ -78,6 +92,8 @@ export const ManagementDashboardView: React.FC = () => {
               <option key={p} value={p}>{PERIOD_LABELS[p]}</option>
             ))}
           </select>
+          {view === 'overview' && (
+          <>
           <select
             aria-label="หน่วยงาน"
             className={selectClass}
@@ -100,9 +116,38 @@ export const ManagementDashboardView: React.FC = () => {
               <option key={f.key} value={f.key}>{f.label}</option>
             ))}
           </select>
+          </>
+          )}
         </div>
       </div>
 
+      {/* Two views: all requests, and tickets opened from email */}
+      <div role="tablist" className="flex gap-1 border-b border-slate-200">
+        {VIEWS.map(v => {
+          const Icon = v.icon;
+          const active = view === v.key;
+          return (
+            <button
+              key={v.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setView(v.key)}
+              className={`-mb-px inline-flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 cursor-pointer whitespace-nowrap ${
+                active ? 'border-red-600 text-red-700 font-bold' : 'border-transparent text-slate-600 font-medium hover:text-red-700'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {v.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === 'email' ? (
+        <EmailTicketsPanel periodStart={periodStart(filters.period, new Date())} periodLabel={PERIOD_LABELS[filters.period]} />
+      ) : (
+      <>
       {/* KPI tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {tiles.map(t => {
@@ -301,6 +346,8 @@ export const ManagementDashboardView: React.FC = () => {
           <p className="text-[11px] text-slate-400">นับตามช่วงเวลาที่เลือก</p>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };
