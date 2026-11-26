@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { DASHBOARD_TAB, useApp } from '../context/AppContext';
 import { useAuth } from './AuthGate';
 import { ENV_BADGE, FIREBASE_PROJECT_ID, IS_PRODUCTION } from '../lib/firebase';
 import { MenuItemPermission } from '../types';
@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   GitBranch,
   Contact,
+  LayoutDashboard,
 } from 'lucide-react';
 
 
@@ -37,6 +38,7 @@ const ADMIN_NAV_ITEMS = [
 const FORMS_GROUP_LABEL = 'แบบฟอร์ม';
 const ADMIN_GROUP_LABEL = 'การจัดการระบบ';
 const HOME_LABEL = 'เมนูของฉัน';
+const DASHBOARD_LABEL = 'แดชบอร์ด';
 const KB_LABEL = 'Knowledge Base';
 const KNOWLEDGE_LABEL = 'Knowledge';
 const ASSIST_LABEL = 'Assistance';
@@ -171,6 +173,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
   }, [openMenu]);
 
   const isHomeActive = activeTab === 'my_workspace';
+  const isDashboardActive = activeTab === DASHBOARD_TAB;
+  const showDashboard = canAccessTab(DASHBOARD_TAB);
   const isKbActive = activeTab === 'knowledge_base';
   const isAssistActive = activeTab === 'assistance';
   const isKnowledgeActive = isKbActive || isAssistActive;
@@ -186,6 +190,8 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
         : [KNOWLEDGE_LABEL, KB_LABEL]
     : isAssistActive
       ? [KNOWLEDGE_LABEL, ASSIST_LABEL]
+    : isDashboardActive
+      ? [DASHBOARD_LABEL]
     : activeAdminItem
       ? [ADMIN_GROUP_LABEL, activeAdminItem.name]
       : [HOME_LABEL];
@@ -247,6 +253,17 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             <Home className="w-4 h-4" />
             <span>{HOME_LABEL}</span>
           </button>
+
+          {showDashboard && (
+            <button
+              onClick={() => goTo(DASHBOARD_TAB)}
+              aria-current={isDashboardActive ? 'page' : undefined}
+              className={topLinkClass(isDashboardActive)}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span>{DASHBOARD_LABEL}</span>
+            </button>
+          )}
 
           <button
             onClick={() => toggleMenu('dept')}
@@ -619,6 +636,19 @@ export const Navbar: React.FC<NavbarProps> = ({ scrolled = false }) => {
             <Home className={`w-4 h-4 ${isHomeActive ? 'text-red-600' : 'text-slate-500'}`} />
             <span>{HOME_LABEL}</span>
           </button>
+          {showDashboard && (
+            <button
+              onClick={() => goTo(DASHBOARD_TAB)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg border-l-4 text-sm text-left cursor-pointer ${
+                isDashboardActive
+                  ? 'bg-red-50 text-red-700 font-bold border-red-600'
+                  : 'border-transparent text-slate-700 font-medium hover:bg-slate-50'
+              }`}
+            >
+              <LayoutDashboard className={`w-4 h-4 ${isDashboardActive ? 'text-red-600' : 'text-slate-500'}`} />
+              <span>{DASHBOARD_LABEL}</span>
+            </button>
+          )}
 
           {/* Accordion: หน่วยงานองค์กร */}
           <button
