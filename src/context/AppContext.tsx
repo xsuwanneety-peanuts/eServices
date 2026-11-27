@@ -86,6 +86,8 @@ import { SEED_SAMPLE_DATA } from '../lib/firebase';
 import { CustomFormInput, FORM_CODE_PREFIX } from '../utils/forms';
 
 const ADMIN_TABS = ['access_control', 'workflow_builder', 'employee_directory'];
+/** The management dashboard (แดชบอร์ด): ผู้บริหาร and ผู้ดูแลระบบ only. */
+export const DASHBOARD_TAB = 'management_dashboard';
 
 const UNASSIGNED_APPROVER = 'ยังไม่ได้กำหนดผู้อนุมัติ';
 
@@ -1637,7 +1639,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         isSystemAdmin,
         isAdminLogin,
-        canAccessTab: (tab: string) => canUserAccessTab(isAdminLogin, tab),
+        // The management dashboard is for ผู้บริหาร and ผู้ดูแลระบบ
+        canAccessTab: (tab: string) =>
+          tab === DASHBOARD_TAB ? isSystemAdmin || isAdminLogin : canUserAccessTab(isAdminLogin, tab),
         canApprove,
         canActOnRequest,
         canForwardRequest,

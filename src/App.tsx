@@ -4,7 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider, DASHBOARD_TAB, useApp } from './context/AppContext';
+import { ManagementDashboardView } from './components/ManagementDashboardView';
 import { AuthGate, FullScreenLoader, useAuth } from './components/AuthGate';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
@@ -22,7 +23,7 @@ import { ConfirmDialogHost } from './components/ConfirmDialog';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, toast, dataReady, employees, isLinkedAccount, isDisabledAccount } = useApp();
+  const { activeTab, toast, dataReady, employees, isLinkedAccount, isDisabledAccount, canAccessTab } = useApp();
   const { user, isAdminLogin, signOutUser } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -113,6 +114,7 @@ const AppContent: React.FC = () => {
           {activeTab === 'employee_directory' && <EmployeeDirectoryView />}
           {activeTab === 'knowledge_base' && <KnowledgeBaseView />}
           {activeTab === 'assistance' && <AssistanceView />}
+          {activeTab === DASHBOARD_TAB && canAccessTab(DASHBOARD_TAB) && <ManagementDashboardView />}
         </div>
       </main>
 

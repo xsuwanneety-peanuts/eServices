@@ -177,6 +177,30 @@ export interface DocumentRequest {
   poRequest?: PoRequestData;
   /** Set when the request is an insurance quotation (ข้อเสนอการประกันภัย). */
   quotation?: QuotationData;
+  /** Set when the request is a ticket opened from an email (email-to-ticket). */
+  email?: EmailSource;
+}
+
+/**
+ * The email a ticket was opened from. Employees redirect work email to the shared ticket
+ * mailbox; the system reads only that mailbox. Not connected yet: no ticket has this so far.
+ */
+export interface EmailSource {
+  /** The mail server's id of the first message, so the same email never opens two tickets. */
+  messageId: string;
+  /** Groups replies in the same thread onto this ticket. */
+  conversationId?: string;
+  fromEmail: string;
+  fromName?: string;
+  /** Who the email was sent to: the employee among them is the one the ticket is assigned to. */
+  to: string[];
+  subject: string;
+  /** dd.mm.yyyy hh:mm */
+  receivedAt: string;
+  /** Category key, worked out from the subject (see EMAIL_TICKET_CATEGORIES). */
+  category: string;
+  /** Messages in the thread, including the first. */
+  messageCount?: number;
 }
 
 /**
